@@ -36,6 +36,7 @@ export default function SignupPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const {
     register,
@@ -47,24 +48,25 @@ export default function SignupPage() {
   });
 
   const onSubmit = async (data: SignupForm) => {
-    try {
-      const res = await signup({
-        name: data.name,
-        email: data.email,
-        password: data.password,
-      });
+    const res = await signup({
+      name: data.name,
+      email: data.email,
+      password: data.password,
+    });
 
-      if (res[0] !== null) {
-        setError("root", { message: res[0]?.message ?? "Signup failed" });
-        return;
-      }
-
-      // Redirect to login after success
-      // router.push("/login");
-    } catch (err) {
-      console.error(err);
-      setError("root", { message: "Something went wrong" });
+    if (res[0] !== null) {
+      setError("root", { message: res[0]?.message ?? "Signup failed" });
+      setSuccessMessage("");
+      return;
     }
+
+    // Show success message
+    setSuccessMessage("Signup successful! Redirecting to login...");
+
+    // Wait 2 seconds, then redirect
+   setTimeout(() => {
+      router.push("/login");
+    }, 2000); 
   };
 
   return (
@@ -81,6 +83,12 @@ export default function SignupPage() {
           {errors.root && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
               <span className="block sm:inline">{errors.root.message}</span>
+            </div>
+          )}
+          {/* Success message */}
+          {successMessage && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
+              <span className="block sm:inline">{successMessage}</span>
             </div>
           )}
 
@@ -107,7 +115,7 @@ export default function SignupPage() {
           )}
 
           {/* Password */}
-           <div className="relative">
+          <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
@@ -117,8 +125,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-2 text-sm text-gray-500"
-            >
+              className="absolute right-2 top-2 text-sm text-gray-500">
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
@@ -137,8 +144,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-2 top-2 text-sm text-gray-500"
-            >
+              className="absolute right-2 top-2 text-sm text-gray-500">
               {showConfirmPassword ? "Hide" : "Show"}
             </button>
           </div>

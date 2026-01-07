@@ -43,7 +43,7 @@ export default function LoginPage() {
   // 🔹 Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      router.push("/dashboard"); // automatically redirect logged-in users
+      router.push("/"); // automatically redirect logged-in users
     }
   }, [user, loading, router]);
 
@@ -53,7 +53,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     try {
       await login(data.email, data.password); // backend sets JWT cookie
-      router.push("/dashboard"); // redirect after login
+      router.push("/"); // redirect after login
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError("root", {

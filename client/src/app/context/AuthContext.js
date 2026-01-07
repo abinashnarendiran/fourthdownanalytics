@@ -14,9 +14,8 @@ export const AuthProvider = ({ children }) => {
     const fetchUser = async () => {
       try {
         const user = await getMe();
-        console.log("Fetched user in AuthProvider:", user);
         if (user[0] === null) {
-          setUser(user[1] || null);
+          setUser(user[1]?.user || null);
         }
       } catch (err) {
         console.error("Error fetching user:", err);
