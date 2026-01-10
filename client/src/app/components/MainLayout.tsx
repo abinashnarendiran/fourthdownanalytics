@@ -2,9 +2,10 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { logout } from "../api/auth";
+import { logout } from "../../api/auth";
 
 interface Props {
   children: React.ReactNode;
@@ -29,10 +30,19 @@ export default function MainLayout({ children }: Props) {
     <div className="flex h-screen bg-[var(--background)] text-[var(--foreground)]">
       {/* Sidebar */}
       <aside className="w-64 bg-primary text-white shrink-0 p-4">
-        <h1 className="text-xl font-bold mb-6">Fourth Down Analytics</h1>
+        <div className="flex items-center gap-2 mb-6">
+          <Image
+            src="/fourth-down-analytics-logo.png"
+            alt="Fourth Down Analytics Logo"
+            width={100}
+            height={100}
+            priority
+          />
+          <h6 className="text-l font-bold">Fourth Down Analytics</h6>
+        </div>
         <nav className="flex flex-col gap-2">
           <Link href="/" className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded">Dashboard</Link>
-          <Link href="/settings" className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded">Connect Fantasy Platforms</Link>
+          <Link href="/integrations" className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded">Connect Fantasy Platforms</Link>
           <Link href="/profile" className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded">Profile</Link>
         </nav>
       </aside>

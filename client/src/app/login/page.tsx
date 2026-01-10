@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { login } from "../api/auth";
+import { login } from "../../api/auth";
 import { useAuth } from "../context/AuthContext";
 import Head from "next/head";
 
@@ -30,6 +30,7 @@ export default function LoginPage() {
   const { user, loading } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const {
     register,
@@ -51,16 +52,16 @@ export default function LoginPage() {
    * 🔑 Login submit
    */
   const onSubmit = async (data: LoginForm) => {
-    try {
-      await login(data.email, data.password); // backend sets JWT cookie
-      router.push("/"); // redirect after login
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
+    const res = await login(data.email, data.password); // backend sets JWT cookie
+
+    console.log("Login response:", res);
+
+    if (res[0] === null) {
+      router.push("/");
+    } else {
       setError("root", {
-        message:
-          err?.response?.status === 401
-            ? "Invalid email or password"
-            : "Something went wrong",
+        type: "server",
+        message: res[0]?.message || "Login failed",
       });
     }
   };
@@ -69,72 +70,71 @@ export default function LoginPage() {
 
   return (
     <>
-    <Head>
-      <title>Fourth Down Analytics</title>
-    </Head>
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-md p-8 border rounded-lg shadow">
-        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+      <Head>
+        <title>Fourth Down Analytics</title>
+      </Head>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="w-full max-w-md p-8 border rounded-lg shadow">
+          <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          {/* Global error */}
-          {errors.root && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              {errors.root.message}
-            </div>
-          )}
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="flex flex-col gap-4">
+            {/* Global error */}
+            {errors.root && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {errors.root.message}
+              </div>
+            )}
 
-          {/* Email */}
-          <input
-            type="email"
-            placeholder="Email"
-            {...register("email")}
-            className="border rounded px-4 py-2"
-          />
-          {errors.email && (
-            <p className="text-red-500 text-sm">{errors.email.message}</p>
-          )}
-
-          {/* Password */}
-          <div className="relative">
+            {/* Email */}
             <input
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              {...register("password")}
-              className="border rounded px-4 py-2 w-full"
+              type="email"
+              placeholder="Email"
+              {...register("email")}
+              className="border rounded px-4 py-2"
             />
+            {errors.email && (
+              <p className="text-red-500 text-sm">{errors.email.message}</p>
+            )}
+
+            {/* Password */}
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                {...register("password")}
+                className="border rounded px-4 py-2 w-full"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2 top-2 text-sm text-gray-500">
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="text-red-500 text-sm">{errors.password.message}</p>
+            )}
+
             <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-2 text-sm text-gray-500"
-            >
-              {showPassword ? "Hide" : "Show"}
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-blue-600 text-white py-2 rounded">
+              {isSubmitting ? "Logging in..." : "Login"}
             </button>
-          </div>
-          {errors.password && (
-            <p className="text-red-500 text-sm">{errors.password.message}</p>
-          )}
+          </form>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-blue-600 text-white py-2 rounded"
-          >
-            {isSubmitting ? "Logging in..." : "Login"}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-gray-500">
-          No account?{" "}
-          <button
-            onClick={() => router.push("/signup")}
-            className="text-blue-600 underline"
-          >
-            Sign up
-          </button>
-        </p>
+          <p className="mt-4 text-center text-gray-500">
+            No account?{" "}
+            <button
+              onClick={() => router.push("/signup")}
+              className="text-blue-600 underline">
+              Sign up
+            </button>
+          </p>
+        </div>
       </div>
-    </div>
     </>
   );
 }

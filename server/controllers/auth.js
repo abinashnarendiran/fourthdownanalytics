@@ -44,10 +44,10 @@ module.exports.login = async (req, res) => {
 
 
   const user = await Users.findOne({ where: { email } });
-  if (!user) return res.status(401).json({ message: "Invalid credentials" });
+  if (!user) return res.status(401).json({ message: "Email not found" });
 
   const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(401).json({ message: "Invalid credentials" });
+  if (!match) return res.status(401).json({ message: "Password incorrect" });
 
 
   const token = jwt.sign(

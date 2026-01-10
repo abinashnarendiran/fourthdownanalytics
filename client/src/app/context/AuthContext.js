@@ -1,7 +1,7 @@
 "use client"; // important if using Next.js App Router
 
 import { createContext, useContext, useState, useEffect } from "react";
-import { getMe } from "../api/auth";
+import { getMe } from "../../api/auth";
 
 const AuthContext = createContext();
 
@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const user = await getMe();
         if (user[0] === null) {
-          setUser(user[1]?.user || null);
+          setUser(user[1].user || null);
         }
       } catch (err) {
         console.error("Error fetching user:", err);
