@@ -31,7 +31,7 @@ module.exports.signup = async (req, res) => {
     const newUser = await Users.create({ name, email, password: hashedPassword });
 
     // 4️⃣ Send success response
-    res.status(201).json({ message: "User created", user: newUser });
+    res.status(201).json(newUser);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Try Again" });
@@ -51,7 +51,7 @@ module.exports.login = async (req, res) => {
 
 
   const token = jwt.sign(
-    { id: user.id, name: user.name, email: user.email },
+    { userId: user.userId, name: user.name, email: user.email },
     JWT_SECRET,
     { expiresIn: "1d" }
   );
@@ -59,9 +59,7 @@ module.exports.login = async (req, res) => {
   res.cookie("auth_token", token, COOKIE_OPTIONS);
 
 
-  res.json({
-    user: { id: user.id, name: user.name, email: user.email }
-  });
+  res.json({ userId: user.userId, name: user.name, email: user.email });
 };
 // Logout
 module.exports.logout = (req, res) => {
@@ -75,7 +73,7 @@ module.exports.me = (req, res) => {
     if (!token) return res.status(401).json({ message: "Not authenticated" });
 
     const decoded = jwt.verify(token, JWT_SECRET);
-    res.json({ user: decoded });
+    res.json(decoded);
   } catch {
     res.status(401).json({ message: "Invalid token" });
   }

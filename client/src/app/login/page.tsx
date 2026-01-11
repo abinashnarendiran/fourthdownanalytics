@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { login } from "../../api/auth";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import Head from "next/head";
 
 /**
@@ -25,9 +25,16 @@ const schema = z.object({
 
 type LoginForm = z.infer<typeof schema>;
 
+// 1️⃣ Define User type (adjust fields as needed)
+interface User {
+  id: number;  // match the API
+  email: string;
+  name?: string;
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, setUser } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -51,20 +58,22 @@ export default function LoginPage() {
   /**
    * 🔑 Login submit
    */
-  const onSubmit = async (data: LoginForm) => {
-    const res = await login(data.email, data.password); // backend sets JWT cookie
-
+const onSubmit = async (data: LoginForm) => {
+  const res = await login(data.email, data.password);
     console.log("Login response:", res);
 
-    if (res[0] === null) {
-      router.push("/");
+    if (res[0] === null && res[1]) {
+      // ✅ set the user exactly as returned from API
+      setUser(res[1]);
+      router.push("/"); // redirect
     } else {
       setError("root", {
         type: "server",
         message: res[0]?.message || "Login failed",
       });
     }
-  };
+};
+
 
   if (loading) return <p>Loading...</p>; // wait for AuthContext to load
 

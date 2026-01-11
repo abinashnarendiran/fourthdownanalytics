@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { logout } from "../../api/auth";
 
@@ -13,7 +13,6 @@ interface Props {
 
 export default function MainLayout({ children }: Props) {
   const { user, setUser } = useAuth();
-  console.log("MainLayout user:", user);
   const router = useRouter();
 
   const handleLogout = async () => {
