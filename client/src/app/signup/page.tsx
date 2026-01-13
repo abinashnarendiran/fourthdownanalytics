@@ -47,6 +47,7 @@ export default function SignupPage() {
     resolver: zodResolver(schema),
   });
 
+  // Signup submit
   const onSubmit = async (data: SignupForm) => {
     const res = await signup({
       name: data.name,

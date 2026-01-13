@@ -36,8 +36,8 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, loading, setUser } = useAuth();
 
+  // Password visibility toggle
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
 
   const {
     register,
@@ -60,7 +60,6 @@ export default function LoginPage() {
    */
 const onSubmit = async (data: LoginForm) => {
   const res = await login(data.email, data.password);
-    console.log("Login response:", res);
 
     if (res[0] === null && res[1]) {
       // ✅ set the user exactly as returned from API

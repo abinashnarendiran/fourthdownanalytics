@@ -1,64 +1,89 @@
 "use client";
 
 import React, { useState } from "react";
-import { Platform, League } from "../../types/integration.types";
-import LeaguePicker from "./LeaguePicker";
-import { pl } from "zod/locales";
+import { Platform, League, PlatformUser } from "../../types/integration.types";
+import { LeaguePicker } from "./LeaguePicker";
 import { fetchSleeperAccount } from "@/api/intergrations";
 
-interface Props {
+interface AddLeagueModalProps {
   platform: Platform;
   onClose: () => void;
-  onLeaguesAdded: (platformId: string, newLeagues: League[]) => void;
+  onLeaguesAdded: (platformUser: PlatformUser | null, newLeagues: League[]) => void;
+  addError: boolean;
+  addErrorMessage: string;
 }
 
-export default function AddLeagueModal({ platform, onClose, onLeaguesAdded }: Props) {
+export const AddLeagueModal: React.FC<AddLeagueModalProps> = ({
+  platform,
+  onClose,
+  onLeaguesAdded,
+  addError,
+  addErrorMessage
+}) => {
+   const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
+
+
   const [step, setStep] = useState<1 | 2>(1);
   const [username, setUsername] = useState("");
-  const [year, setYear] = useState("2025");
+  const [year, setYear] = useState(currentYear);
+  const [userData, setUserData] = useState<PlatformUser | null>(null);
   const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleContinue = async (platformName: string) => {
-    if(!username) return;
+ // Step 1: Fetch leagues based on username and year
+  const handleContinue = async () => {
+    if (!username) return;
 
     setLoading(true);
+    setError(false);
+    setErrorMessage("");
 
-    if(platformName === "Sleeper") {
-        const getSleeperUser =  await  fetchSleeperAccount(username, parseInt(year));
-
-        console.log("Sleeper user fetch result:", getSleeperUser);
-    }
-      
-    setLoading(false);
-    /* if (!username) return;
-    setLoading(true);
     try {
-      const res = await resolveSleeperAccount(username, parseInt(year));
-      setLeagues(res.leagues);
-      setStep(2);
+      if (platform.platform === "Sleeper") {
+        const getSleeperUser = await fetchSleeperAccount(username, year);
+
+        if(getSleeperUser[0] === null) {
+            setError(false)
+            setErrorMessage("");
+            setUserData(getSleeperUser[1]);
+            setLeagues(getSleeperUser[1]?.leagues as League[] || []);
+            setStep(2);
+        } else {
+            setError(true);
+            setErrorMessage(getSleeperUser[0]?.message || "Failed to fetch Sleeper account");
+        }
+      }
     } catch (err) {
       console.error(err);
-      alert("Failed to resolve account. Check username/year.");
+      setError(true);
+      setErrorMessage("Failed to fetch leagues. Try again.");
     }
-    setLoading(false); */
+
+    setLoading(false);
   };
 
-  const handleAddLeagues = async (selectedLeagueIds: string[]) => {
-    /* if (selectedLeagueIds.length === 0) return;
+  // Step 2: Add selected leagues
+  const handleAddLeagues = (selectedLeagueIds: string[]) => {
+    if (selectedLeagueIds.length === 0) return;
+
+    const filteredLeagues = leagues.filter((league) =>
+      selectedLeagueIds.includes(league.leagueId)
+    );
+
     setLoading(true);
     try {
-      // Use accountId from resolved leagues (assume first league has accountId)
-      const accountId = leagues.find(l => l.added !== undefined)?.accountId || "";
-      await attachSleeperLeagues(accountId, selectedLeagueIds);
-      const newLeagues = leagues.filter(l => selectedLeagueIds.includes(l.id));
-      onLeaguesAdded(platform.platform, newLeagues);
+      onLeaguesAdded(userData, filteredLeagues);
     } catch (err) {
       console.error(err);
       alert("Failed to add leagues.");
     }
-    setLoading(false); */
+    setLoading(false);
   };
+
+
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -83,20 +108,29 @@ export default function AddLeagueModal({ platform, onClose, onLeaguesAdded }: Pr
               placeholder={`${platform.platform} Username`}
               className="border border-gray-300 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-purple-500"
               value={username}
-              onChange={e => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value)}
             />
 
             <select
               className="border border-gray-300 rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-purple-500"
               value={year}
-              onChange={e => setYear(e.target.value)}
+              onChange={(e) => setYear(parseInt(e.target.value))}
             >
-              <option>2025</option>
-              <option>2024</option>
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
             </select>
 
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {errorMessage}
+              </div>
+            )}
+
             <button
-              onClick={() => handleContinue(platform.platform)}
+              onClick={handleContinue}
               className="w-full px-4 py-2 rounded text-white hover:opacity-90 transition"
               style={{ backgroundColor: "var(--accent)" }}
             >
@@ -106,9 +140,9 @@ export default function AddLeagueModal({ platform, onClose, onLeaguesAdded }: Pr
         )}
 
         {step === 2 && (
-          <LeaguePicker leagues={leagues} onSubmit={handleAddLeagues} />
+          <LeaguePicker leagues={leagues} onSubmit={handleAddLeagues} addError={addError} addErrorMessage={addErrorMessage} />
         )}
       </div>
     </div>
   );
-}
+};

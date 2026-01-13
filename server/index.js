@@ -34,8 +34,7 @@ sequelize.authenticate()
   .then(() => console.log("Database connected"))
   .catch(err => console.error(err));
 
-sequelize.sync();
-
+sequelize.sync({ logging: process.env.NODE_ENV === "development" ? console.log : false });
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

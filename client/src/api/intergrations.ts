@@ -1,4 +1,4 @@
-import { Platform } from "@/types/integration.types";
+import { Platform, PlatformUser} from "@/types/integration.types";
 import { api } from "../apiConfig/client"; // your Axios instance
 import type { AxiosError } from "axios";
 
@@ -11,25 +11,17 @@ export const getUserPlatforms = async (): Promise<ApiResult<Platform[]>> => {
     const response = await api.get<{ platforms: Platform[] }>("integrations/userPlatforms");
     return [null, response.data.platforms];
   } catch (err) {
-    // Type-safe Axios error handling
-    let error: Error;
-
-    if (err && (err as AxiosError).isAxiosError) {
-      const axiosErr = err as AxiosError<{ message?: string }>;
-      error = new Error(
-        axiosErr.response?.data?.message || axiosErr.message || "Request failed"
-      );
-    } else {
-      error = err instanceof Error ? err : new Error("Request failed");
-    }
-
-    return [error, null];
+    const error = err as AxiosError;
+    const e: Error =
+      ((error?.response?.data as unknown) as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+    return [e, null];
   }
 };
 
-
 // Use unknown instead of any
-export const fetchSleeperAccount = async <T = unknown>(
+export const fetchSleeperAccount = async <T = PlatformUser>(
   userName: string,
   year: number
 ): Promise<ApiResult<T>> => {
@@ -38,18 +30,68 @@ export const fetchSleeperAccount = async <T = unknown>(
 
     return [null, response.data];
   } catch (err) {
-    let error: Error;
-
-    if (err && (err as AxiosError).isAxiosError) {
-      const axiosErr = err as AxiosError<{ message?: string }>;
-      error = new Error(
-        axiosErr.response?.data?.message || axiosErr.message || "Request failed"
-      );
-    } else {
-      error = err instanceof Error ? err : new Error("Request failed");
-    }
-
-    return [error, null];
+    const error = err as AxiosError;
+    const e: Error =
+      ((error?.response?.data as unknown) as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+    return [e, null];
   }
 };
+
+export  const addLeagues = async (platformData: PlatformUser): Promise<ApiResult> => {
+  try {
+    await api.post("integrations/addLeagues", { platformData });
+    return [null, null];
+  } catch (err) {
+    const error = err as AxiosError;
+    const e: Error =
+      ((error?.response?.data as unknown) as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+    return [e, null];
+  }
+};
+
+export  const deleteLeague = async (fantasyDbLeagueId: string): Promise<ApiResult> => {
+  try {
+    await api.delete(`integrations/deleteLeague/${fantasyDbLeagueId}`);
+    return [null, null];
+  } catch (err) {
+    const error = err as AxiosError;
+    const e: Error =
+      ((error?.response?.data as unknown) as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+    return [e, null];
+  }
+};
+
+export  const deleteFantasyPlatform = async (fantasyPlatformId: string): Promise<ApiResult> => {
+  try {
+    await api.delete(`integrations/deleteFantasyPlatform/${fantasyPlatformId}`);
+    return [null, null];
+  } catch (err) {
+    const error = err as AxiosError;
+    const e: Error =
+      ((error?.response?.data as unknown) as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+    return [e, null];
+  }
+};
+
+export const resyncPlatform = async (platformData: Platform): Promise<ApiResult> => {
+  try {
+    await api.post("integrations/resyncPlatform", { platformData });
+    return [null, null];
+  } catch (err) {
+    const error = err as AxiosError;
+    const e: Error =
+      ((error?.response?.data as unknown) as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+    return [e, null];
+  }
+}
 

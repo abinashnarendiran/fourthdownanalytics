@@ -11,7 +11,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-export default function MainLayout({ children }: Props) {
+export const MainLayout = ({ children }: Props) => {
   const { user, setUser } = useAuth();
   const router = useRouter();
 

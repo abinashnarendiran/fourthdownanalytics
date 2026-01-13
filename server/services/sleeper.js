@@ -20,4 +20,22 @@ const getSleeperLeagues = async (userId, year) => {
   }
 };
 
-module.exports = { getSleeperUser, getSleeperLeagues };
+const getSleeperByLeagueId = async (leagueId) => {
+  try {
+    const response = await axios.get(`${sleeperAPIURL}/league/${leagueId}`);
+    return response.data;
+  } catch (err) {
+    return null;
+  }
+};
+
+const getSleeperDraftSettings = async (leagueId) => {
+  try {
+    const response = await axios.get(`${sleeperAPIURL}/league/${leagueId}/drafts`);
+    return response.data;
+  } catch (err) {
+    return null;
+  }
+};
+
+module.exports = { getSleeperUser, getSleeperLeagues, getSleeperDraftSettings, getSleeperByLeagueId };

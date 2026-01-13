@@ -6,13 +6,15 @@ import { League } from "../../types/integration.types";
 interface Props {
   leagues: League[];
   onSubmit: (selectedLeagueIds: string[]) => void;
+  addError: boolean;
+  addErrorMessage: string;
 }
 
-export default function LeaguePicker({ leagues, onSubmit }: Props) {
-  const [selectedIds, setSelectedIds] = useState<string[]>(
-    leagues.filter(l => l.added).map(l => l.id)
-  );
+export const LeaguePicker = ({ leagues, onSubmit, addError, addErrorMessage }: Props) => {
+  // State to track selected leagues
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  // Toggle league selection
   const toggleLeague = (id: string, alreadyAdded: boolean) => {
     if (alreadyAdded) return; // cannot deselect already added
     setSelectedIds(prev =>
@@ -20,6 +22,7 @@ export default function LeaguePicker({ leagues, onSubmit }: Props) {
     );
   };
 
+  // Submit selected leagues
   const handleSubmit = () => {
     onSubmit(selectedIds);
   };
@@ -29,17 +32,17 @@ export default function LeaguePicker({ leagues, onSubmit }: Props) {
       <h2 className="text-lg font-semibold">Select leagues to add</h2>
       <ul className="space-y-2 max-h-64 overflow-y-auto">
         {leagues.map(league => (
-          <li key={league.id}>
+          <li key={league.leagueId} className="flex items-center">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
                 className="accent-purple-600"
-                checked={selectedIds.includes(league.id)}
+                checked={selectedIds.includes(league.leagueId)}
                 disabled={league.added}
-                /* onChange={() => toggleLeague(league.id, league.added)} */
+                onChange={() => toggleLeague(league.leagueId, league.added)}
               />
               <span className={league.added ? "text-gray-400" : "text-gray-800"}>
-                {league.name} {league.added && "(Already added)"}
+                {league.leagueName} {league.added && "(Already added)"}
               </span>
             </label>
           </li>
@@ -53,6 +56,11 @@ export default function LeaguePicker({ leagues, onSubmit }: Props) {
       >
         Add Selected Leagues
       </button>
+      {addError && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {addErrorMessage}
+        </div>
+      )}
     </div>
   );
 }

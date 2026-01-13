@@ -1,86 +1,87 @@
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const { Users } = require("../models");
+const bcrypt = require("bcrypt"); 
+const jwt = require("jsonwebtoken"); 
+const { Users } = require("../models"); 
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret"; // Secret for JWT signing
 const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: false,      // true in production (HTTPS)
-  sameSite: "lax",
-  maxAge: 1000 * 60 * 60 * 24, // 1 day
+  httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
+  secure: false,  // Set to true in production (HTTPS)
+  sameSite: "lax", // CSRF protection
+  maxAge: 1000 * 60 * 60 * 24, // Cookie expiration time (1 day)
 };
 
 // Signup
 module.exports.signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
-
+    const { name, email, password } = req.body; // Destructure user data from request body
 
     // 1️⃣ Check if the email already exists
     const existingUser = await Users.findOne({ where: { email } });
     if (existingUser) {
       return res
         .status(400)
-        .json({ message: "Email already in use" }); // return early
+        .json({ message: "Email already in use" }); // Return early if user exists
     }
 
     // 2️⃣ Hash password
-    const hashedPassword = await bcrypt.hash(password, 10); // or use SALT_ROUNDS
+    const hashedPassword = await bcrypt.hash(password, 10); // Hash the password
 
     // 3️⃣ Create user
-    const newUser = await Users.create({ name, email, password: hashedPassword });
+    const newUser = await Users.create({ name, email, password: hashedPassword }); // Save new user to database
 
     // 4️⃣ Send success response
-    res.status(201).json(newUser);
+    res.status(201).json(newUser); // Respond with the created user
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Try Again" });
+    console.error(err); // Log error
+    res.status(500).json({ message: "Try Again" }); // Respond with error message
   }
 };
 
 // Login
 module.exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body; // Destructure user credentials from request body
 
-
+  // Find user by email
   const user = await Users.findOne({ where: { email } });
-  if (!user) return res.status(401).json({ message: "Email not found" });
+  if (!user) return res.status(401).json({ message: "Email not found" }); // Respond if user not found
 
+  // Compare password with hashed password
   const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(401).json({ message: "Password incorrect" });
+  if (!match) return res.status(401).json({ message: "Password incorrect" }); // Respond if password does not match
 
-
+  // Generate JWT token
   const token = jwt.sign(
     { userId: user.userId, name: user.name, email: user.email },
     JWT_SECRET,
-    { expiresIn: "1d" }
+    { expiresIn: "1d" } // Token expiration time (1 day)
   );
 
-  res.cookie("auth_token", token, COOKIE_OPTIONS);
+  res.cookie("auth_token", token, COOKIE_OPTIONS); // Set cookie with token
 
-
-  res.json({ userId: user.userId, name: user.name, email: user.email });
+  res.json({ userId: user.userId, name: user.name, email: user.email }); // Respond with user data
 };
+
 // Logout
 module.exports.logout = (req, res) => {
-  res.clearCookie("auth_token");
-  res.json({ message: "Logged out" });
+  res.clearCookie("auth_token"); // Clear the authentication cookie
+  res.json({ message: "Logged out" }); // Respond with logout message
 };
 
+// Get current user
 module.exports.me = (req, res) => {
   try {
-    const token = req.cookies.auth_token;
-    if (!token) return res.status(401).json({ message: "Not authenticated" });
+    const token = req.cookies.auth_token; // Get token from cookies
+    if (!token) return res.status(401).json({ message: "Not authenticated" }); // Respond if no token
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    res.json(decoded);
+    const decoded = jwt.verify(token, JWT_SECRET); // Verify token
+    res.json(decoded); // Respond with decoded token data
   } catch {
-    res.status(401).json({ message: "Invalid token" });
+    res.status(401).json({ message: "Invalid token" }); // Respond if token is invalid
   }
 };
 
 // Refresh
 module.exports.refresh = (req, res) => {
   // Implement refresh token logic here
-  res.json({ message: "Token refreshed" });
+  res.json({ message: "Token refreshed" }); // Placeholder response for token refresh
 };

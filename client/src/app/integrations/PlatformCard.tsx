@@ -6,9 +6,13 @@ import { Platform } from "@/types/integration.types";
 interface Props {
   platform: Platform;
   onAddLeague: () => void;
+  onDeleteLeague: (id: string) => void; // use `id` (your internal one) for deletion
+  onDeletePlatform?: (id: string) => void; // use `id` (your internal one) for deletion
+  isResyncing?: boolean;
+  onResyncing?: () => void;
 }
 
-export default function PlatformCard({ platform, onAddLeague }: Props) {
+export const PlatformCard = ({ platform, onAddLeague, onDeleteLeague, onDeletePlatform, isResyncing, onResyncing }: Props) =>{
   const { platform: name, account } = platform;
 
   // Platform colors/icons
@@ -38,35 +42,57 @@ export default function PlatformCard({ platform, onAddLeague }: Props) {
 
       {/* Account info or placeholder */}
       {account ? (
-        <div className="mt-2">
+        <div className="mt-2 space-y-3">
+          {/* Account header */}
           <p className="text-sm text-gray-700">
-            Account: {account.username} ({name})
+            <span className="font-medium">Account:</span> {account.username} ({name})
           </p>
 
           {/* Leagues */}
-          <div className="mt-2 space-y-1">
-            <p className="font-medium text-gray-800">Leagues:</p>
-            <ul className="pl-4 list-disc text-gray-700 text-sm">
-              {account.leagues.map(league => (
-                <li key={league.id}>
-                  {league.name} ({league.year})
+          <div>
+            <p className="font-medium text-gray-800 mb-1">Leagues</p>
+            <ul className="space-y-1 text-sm text-gray-700">
+              {account.leagues.map((league) => (
+                <li
+                  key={league.leagueId}
+                  className="flex items-center justify-between rounded px-2 py-1 hover:bg-gray-50"
+                >
+                  <span>
+                    {league.leagueName} ({league.seasonYear})
+                  </span>
+                  <button
+                    onClick={() => onDeleteLeague(league.id)}
+                    className="text-red-600 hover:text-red-800 text-xs"
+                  >
+                    Delete
+                  </button>
                 </li>
               ))}
             </ul>
           </div>
 
           {/* Actions */}
-          <div className="mt-3 flex space-x-2">
-            <button
-              onClick={onAddLeague}
-              className="px-3 py-1 rounded text-white hover:opacity-90 transition"
-              style={{ backgroundColor: "var(--accent)" }}
-            >
-              + Add League
-            </button>
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={onAddLeague}
+                className="px-3 py-1 rounded text-white text-sm hover:opacity-90 transition"
+                style={{ backgroundColor: "var(--accent)" }}
+              >
+                + Add League
+              </button>
 
-            <button className="text-gray-600 hover:text-gray-800 text-sm">
-              ⟳ Sync
+              <button className="text-gray-500 hover:text-gray-700 text-sm" disabled={isResyncing || !account} onClick={onResyncing}>
+                {isResyncing ? "⟳ Syncing..." : "⟳ Sync"}
+              </button>
+            </div>
+
+            {/* Delete Account */}
+            <button
+              onClick={() => onDeletePlatform?.(account.fantasyPlatformId)}
+              className="text-red-700 text-sm hover:underline"
+            >
+              Delete account
             </button>
           </div>
         </div>

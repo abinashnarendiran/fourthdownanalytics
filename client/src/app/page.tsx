@@ -1,5 +1,5 @@
-import Protected from "./components/Protected";
-import MainLayout from "./components/MainLayout";
+import {Protected} from "./components/Protected";
+import {MainLayout} from "./components/MainLayout";
 
 export default function DashboardPage() {
   return (
