@@ -1,54 +1,63 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import {Protected} from "../components/Protected";
-import {MainLayout} from "../components/MainLayout";
-import {PlatformCard} from "./PlatformCard";
-import { AddLeagueModal } from "./AddLeagueModal";
-import { League, Platform, PlatformUser } from "@/types/integration.types";
-import { addLeagues, deleteFantasyPlatform, deleteLeague, getUserPlatforms, resyncPlatform } from "@/api/intergrations";
-import { DeleteLeagueModal } from "./DeleteLeagueModal";
-import { DeletePlatformModal } from "./DeletePlatformModal";
+import { useState, useEffect, useCallback } from 'react';
+import { Protected } from '../components/Protected';
+import { MainLayout } from '../components/MainLayout';
+import { PlatformCard } from './PlatformCard';
+import { AddLeagueModal } from './AddLeagueModal';
+import { League, Platform, PlatformUser } from '@/types/integration.types';
+import {
+  addLeagues,
+  deleteFantasyPlatform,
+  deleteLeague,
+  getUserPlatforms,
+  resyncPlatform
+} from '@/api/intergrations';
+import { DeleteLeagueModal } from './DeleteLeagueModal';
+import { DeletePlatformModal } from './DeletePlatformModal';
 /* import { getIntegrations } from "@/services/integrations.service";
 import { Platform, League } from "@/types/integration.types"; */
 
 export default function IntegrationsPage() {
   // List of fantasy platforms connected by the user
-const [platforms, setPlatforms] = useState<Platform[]>([
-  {
-    platform: "Sleeper",
-    account: undefined, // No account linked yet
-  },
-]);
+  const [platforms, setPlatforms] = useState<Platform[]>([
+    {
+      platform: 'Sleeper',
+      account: undefined // No account linked yet
+    }
+  ]);
 
-// Currently selected platform card
-const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(
-  platforms[0]
-);
+  // Currently selected platform card
+  const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(
+    platforms[0]
+  );
 
-// Controls add-league / add-platform modal visibility
-const [addLeaguemodalOpen, setAddLeagueModalOpen] = useState(false);
-const [addError, setAddError] = useState(false);
-const [addErrorMessage, setAddErrorMessage] = useState("");
+  // Controls add-league / add-platform modal visibility
+  const [addLeaguemodalOpen, setAddLeagueModalOpen] = useState(false);
+  const [addError, setAddError] = useState(false);
+  const [addErrorMessage, setAddErrorMessage] = useState('');
 
-// Controls delete-league confirmation modal
-const [deleteLeagueModalOpen, setDeleteLeagueModalOpen] = useState(false);
+  // Controls delete-league confirmation modal
+  const [deleteLeagueModalOpen, setDeleteLeagueModalOpen] = useState(false);
 
-// Controls delete-platform confirmation modal
-const [deletePlatformModalOpen, setDeletePlatformModalOpen] = useState(false);
+  // Controls delete-platform confirmation modal
+  const [deletePlatformModalOpen, setDeletePlatformModalOpen] = useState(false);
 
-// Selected league object (for UI + confirmation text)
-const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
+  // Selected league object (for UI + confirmation text)
+  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
 
-// Selected league DB ID (used for deletion API call)
-const [selectedLeagueDBId, setSelectedLeagueDBId] = useState<string | undefined>();
+  // Selected league DB ID (used for deletion API call)
+  const [selectedLeagueDBId, setSelectedLeagueDBId] = useState<
+    string | undefined
+  >();
 
-// Resyncing
-const [isResyncing, setIsResyncing] = useState(false);
+  // Resyncing
+  const [isResyncing, setIsResyncing] = useState(false);
 
-// Selected fantasy platform ID (used for platform deletion)
-const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] =
-  useState<string | undefined>();
+  // Selected fantasy platform ID (used for platform deletion)
+  const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] = useState<
+    string | undefined
+  >();
 
   const fetchData = async () => {
     const res = await getUserPlatforms();
@@ -56,13 +65,13 @@ const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] =
     if (res[1]) {
       setPlatforms(res[1]);
     } else {
-      console.error("Error fetching user platforms:", res[0]);
+      console.error('Error fetching user platforms:', res[0]);
     }
   };
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
-}, []); // runs once on mount
+  }, []); // runs once on mount
 
   const openAddLeagueModal = (platform: Platform) => {
     setSelectedPlatform(platform);
@@ -79,31 +88,32 @@ const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] =
     setSelectedLeague(
       platform?.account?.leagues.find((l) => l.id === fantasyDbLeagueId) || null
     );
-  }
+  };
 
   const openDeleteFantasyPlatformAccountModal = (fantasyPlatformId: string) => {
     setSelectedFantasyPlatformId(fantasyPlatformId);
-    const platform = platforms.find((p) =>
-      p.account?.fantasyPlatformId === fantasyPlatformId
+    const platform = platforms.find(
+      (p) => p.account?.fantasyPlatformId === fantasyPlatformId
     );
     setSelectedPlatform(platform || null);
     setDeletePlatformModalOpen(true);
-  }
+  };
 
   const closeModal = () => {
     setSelectedPlatform(null);
     setAddLeagueModalOpen(false);
-    setSelectedLeagueDBId("");
+    setSelectedLeagueDBId('');
     setSelectedLeague(null);
-    setSelectedFantasyPlatformId("");
+    setSelectedFantasyPlatformId('');
     setDeleteLeagueModalOpen(false);
     setAddError(false);
-    setAddErrorMessage("");
+    setAddErrorMessage('');
   };
 
-  
-
-  const handleLeaguesAdded = async (platformUserData: PlatformUser | null, newLeagues: League[]) => {
+  const handleLeaguesAdded = async (
+    platformUserData: PlatformUser | null,
+    newLeagues: League[]
+  ) => {
     if (!platformUserData) return; // exit if null
 
     try {
@@ -114,34 +124,31 @@ const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] =
       );
 
       // Optionally filter out any invalid leagues
-      const filteredLeagues = uniqueLeagues.filter((l) => l.leagueId && l.leagueName);
+      const filteredLeagues = uniqueLeagues.filter(
+        (l) => l.leagueId && l.leagueName
+      );
 
       platformUserData.leagues = filteredLeagues;
 
-
       const adding = await addLeagues(platformUserData);
       const error = adding[0]; // first element is error
-      
 
       if (error) {
         setAddError(true);
-        setAddErrorMessage(error?.message || "");
+        setAddErrorMessage(error?.message || '');
       } else {
         setAddError(false);
-        setAddErrorMessage("");
+        setAddErrorMessage('');
         await fetchData();
         closeModal();
       }
-
-      
     } catch (err) {
-      console.error("Failed to add leagues:", err);
+      console.error('Failed to add leagues:', err);
     }
   };
 
   const handleDeleteLeague = async (id: string) => {
     await deleteLeague(id);
-
 
     await fetchData();
     closeModal();
@@ -152,16 +159,15 @@ const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] =
 
     await fetchData();
     closeModal();
-  }
+  };
 
   const handleResyncing = (platform: Platform) => async () => {
     setIsResyncing(true);
     // Here you would call the API to resync the platform
     await resyncPlatform(platform);
-    await fetchData(); 
+    await fetchData();
     setIsResyncing(false);
-  }
-
+  };
 
   return (
     <Protected>
@@ -202,10 +208,11 @@ const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] =
               league={selectedLeague}
               onClose={() => setDeleteLeagueModalOpen(false)}
               onDeleteLeague={handleDeleteLeague}
-              
             />
           )}
-          {deletePlatformModalOpen && selectedPlatform && selectedFantasyPlatformId && (
+          {deletePlatformModalOpen &&
+            selectedPlatform &&
+            selectedFantasyPlatformId && (
             <DeletePlatformModal
               platform={selectedPlatform}
               fantasyPlatformId={selectedFantasyPlatformId}
@@ -213,7 +220,6 @@ const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] =
               onDeleteAccount={handleDeletePlatform}
             />
           )}
-
         </div>
       </MainLayout>
     </Protected>

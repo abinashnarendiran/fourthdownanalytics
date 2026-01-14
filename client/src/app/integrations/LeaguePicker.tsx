@@ -63,4 +63,4 @@ export const LeaguePicker = ({ leagues, onSubmit, addError, addErrorMessage }: P
       )}
     </div>
   );
-}
+};
