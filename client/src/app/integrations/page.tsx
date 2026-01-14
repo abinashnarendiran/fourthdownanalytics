@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { Protected } from '../components/Protected';
-import { MainLayout } from '../components/MainLayout';
-import { PlatformCard } from './PlatformCard';
-import { AddLeagueModal } from './AddLeagueModal';
-import { League, Platform, PlatformUser } from '@/types/integration.types';
+import { useState, useEffect, useCallback } from "react";
+import { Protected } from "../components/Protected";
+import { MainLayout } from "../components/MainLayout";
+import { PlatformCard } from "./PlatformCard";
+import { AddLeagueModal } from "./AddLeagueModal";
+import { League, Platform, PlatformUser } from "@/types/integration.types";
 import {
   addLeagues,
   deleteFantasyPlatform,
   deleteLeague,
   getUserPlatforms,
   resyncPlatform
-} from '@/api/intergrations';
-import { DeleteLeagueModal } from './DeleteLeagueModal';
-import { DeletePlatformModal } from './DeletePlatformModal';
+} from "@/api/intergrations";
+import { DeleteLeagueModal } from "./DeleteLeagueModal";
+import { DeletePlatformModal } from "./DeletePlatformModal";
 /* import { getIntegrations } from "@/services/integrations.service";
 import { Platform, League } from "@/types/integration.types"; */
 
@@ -22,7 +22,7 @@ export default function IntegrationsPage() {
   // List of fantasy platforms connected by the user
   const [platforms, setPlatforms] = useState<Platform[]>([
     {
-      platform: 'Sleeper',
+      platform: "Sleeper",
       account: undefined // No account linked yet
     }
   ]);
@@ -35,7 +35,7 @@ export default function IntegrationsPage() {
   // Controls add-league / add-platform modal visibility
   const [addLeaguemodalOpen, setAddLeagueModalOpen] = useState(false);
   const [addError, setAddError] = useState(false);
-  const [addErrorMessage, setAddErrorMessage] = useState('');
+  const [addErrorMessage, setAddErrorMessage] = useState("");
 
   // Controls delete-league confirmation modal
   const [deleteLeagueModalOpen, setDeleteLeagueModalOpen] = useState(false);
@@ -65,7 +65,7 @@ export default function IntegrationsPage() {
     if (res[1]) {
       setPlatforms(res[1]);
     } else {
-      console.error('Error fetching user platforms:', res[0]);
+      console.error("Error fetching user platforms:", res[0]);
     }
   };
   useEffect(() => {
@@ -102,12 +102,12 @@ export default function IntegrationsPage() {
   const closeModal = () => {
     setSelectedPlatform(null);
     setAddLeagueModalOpen(false);
-    setSelectedLeagueDBId('');
+    setSelectedLeagueDBId("");
     setSelectedLeague(null);
-    setSelectedFantasyPlatformId('');
+    setSelectedFantasyPlatformId("");
     setDeleteLeagueModalOpen(false);
     setAddError(false);
-    setAddErrorMessage('');
+    setAddErrorMessage("");
   };
 
   const handleLeaguesAdded = async (
@@ -135,15 +135,15 @@ export default function IntegrationsPage() {
 
       if (error) {
         setAddError(true);
-        setAddErrorMessage(error?.message || '');
+        setAddErrorMessage(error?.message || "");
       } else {
         setAddError(false);
-        setAddErrorMessage('');
+        setAddErrorMessage("");
         await fetchData();
         closeModal();
       }
     } catch (err) {
-      console.error('Failed to add leagues:', err);
+      console.error("Failed to add leagues:", err);
     }
   };
 
@@ -213,13 +213,13 @@ export default function IntegrationsPage() {
           {deletePlatformModalOpen &&
             selectedPlatform &&
             selectedFantasyPlatformId && (
-            <DeletePlatformModal
-              platform={selectedPlatform}
-              fantasyPlatformId={selectedFantasyPlatformId}
-              onClose={() => setDeletePlatformModalOpen(false)}
-              onDeleteAccount={handleDeletePlatform}
-            />
-          )}
+              <DeletePlatformModal
+                platform={selectedPlatform}
+                fantasyPlatformId={selectedFantasyPlatformId}
+                onClose={() => setDeletePlatformModalOpen(false)}
+                onDeleteAccount={handleDeletePlatform}
+              />
+            )}
         </div>
       </MainLayout>
     </Protected>

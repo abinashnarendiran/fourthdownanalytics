@@ -28,7 +28,7 @@ export const login = async (
   } catch (err) {
     const error = err as AxiosError;
     const e: Error =
-      ((error?.response?.data as unknown) as Error) ||
+      (error?.response?.data as unknown as Error) ||
       (error as unknown as Error) ||
       new Error("Request failed");
     return [e, null];
@@ -43,7 +43,7 @@ export const logout = async (): Promise<ApiResult> => {
   } catch (err) {
     const error = err as AxiosError;
     const e: Error =
-      ((error?.response?.data as unknown) as Error) ||
+      (error?.response?.data as unknown as Error) ||
       (error as unknown as Error) ||
       new Error("Request failed");
     return [e, null];
@@ -58,7 +58,7 @@ export const refresh = async (): Promise<ApiResult<User>> => {
   } catch (err) {
     const error = err as AxiosError;
     const e: Error =
-      ((error?.response?.data as unknown) as Error) ||
+      (error?.response?.data as unknown as Error) ||
       (error as unknown as Error) ||
       new Error("Request failed");
     return [e, null];
@@ -72,14 +72,16 @@ export interface SignupPayload {
   password: string;
 }
 
-export const signup = async (payload: SignupPayload): Promise<ApiResult<User>> => {
+export const signup = async (
+  payload: SignupPayload
+): Promise<ApiResult<User>> => {
   try {
     const res = await api.post("/auth/signup", payload);
     return [null, res.data]; // res.data is the created user
   } catch (err) {
     const error = err as AxiosError;
     const e: Error =
-      ((error?.response?.data as unknown) as Error) ||
+      (error?.response?.data as unknown as Error) ||
       (error as unknown as Error) ||
       new Error("Request failed");
     return [e, null];
@@ -94,7 +96,7 @@ export const getMe = async (): Promise<ApiResult<User>> => {
   } catch (err) {
     const error = err as AxiosError;
     const e: Error =
-      ((error?.response?.data as unknown) as Error) ||
+      (error?.response?.data as unknown as Error) ||
       (error as unknown as Error) ||
       new Error("Request failed");
     return [e, null];

@@ -20,5 +20,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/:path*"], // run on all routes
+  matcher: ["/:path*"] // run on all routes
 };

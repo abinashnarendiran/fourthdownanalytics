@@ -10,15 +10,20 @@ interface Props {
   addErrorMessage: string;
 }
 
-export const LeaguePicker = ({ leagues, onSubmit, addError, addErrorMessage }: Props) => {
+export const LeaguePicker = ({
+  leagues,
+  onSubmit,
+  addError,
+  addErrorMessage
+}: Props) => {
   // State to track selected leagues
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Toggle league selection
   const toggleLeague = (id: string, alreadyAdded: boolean) => {
     if (alreadyAdded) return; // cannot deselect already added
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
 
@@ -31,7 +36,7 @@ export const LeaguePicker = ({ leagues, onSubmit, addError, addErrorMessage }: P
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Select leagues to add</h2>
       <ul className="space-y-2 max-h-64 overflow-y-auto">
-        {leagues.map(league => (
+        {leagues.map((league) => (
           <li key={league.leagueId} className="flex items-center">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
@@ -41,7 +46,9 @@ export const LeaguePicker = ({ leagues, onSubmit, addError, addErrorMessage }: P
                 disabled={league.added}
                 onChange={() => toggleLeague(league.leagueId, league.added)}
               />
-              <span className={league.added ? "text-gray-400" : "text-gray-800"}>
+              <span
+                className={league.added ? "text-gray-400" : "text-gray-800"}
+              >
                 {league.leagueName} {league.added && "(Already added)"}
               </span>
             </label>

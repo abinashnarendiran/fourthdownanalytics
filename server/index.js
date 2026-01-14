@@ -5,7 +5,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const sequelize = require("./config/db");
 
-const { authenticate } = require("./middleware/passport"); 
+const { authenticate } = require("./middleware/passport");
 
 const authRoutes = require("./routes/auth");
 const integrationsRoutes = require("./routes/integrations");
@@ -30,11 +30,14 @@ app.use("/api/auth", authRoutes);
 app.use("/api/integrations", integrationsRoutes);
 
 // Database
-sequelize.authenticate()
+sequelize
+  .authenticate()
   .then(() => console.log("Database connected"))
-  .catch(err => console.error(err));
+  .catch((err) => console.error(err));
 
-sequelize.sync({ logging: process.env.NODE_ENV === "development" ? console.log : false });
+sequelize.sync({
+  logging: process.env.NODE_ENV === "development" ? console.log : false
+});
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

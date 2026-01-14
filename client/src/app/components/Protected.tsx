@@ -18,4 +18,4 @@ export const Protected = ({ children }: { children: React.ReactNode }) => {
   if (loading || !user) return <p>Loading...</p>;
 
   return <>{children}</>;
-}
+};

@@ -12,25 +12,37 @@ interface Props {
   onResyncing?: () => void;
 }
 
-export const PlatformCard = ({ platform, onAddLeague, onDeleteLeague, onDeletePlatform, isResyncing, onResyncing }: Props) =>{
+export const PlatformCard = ({
+  platform,
+  onAddLeague,
+  onDeleteLeague,
+  onDeletePlatform,
+  isResyncing,
+  onResyncing
+}: Props) => {
   const { platform: name, account } = platform;
 
   // Platform colors/icons
   const platformColors: Record<string, string> = {
     Sleeper: "bg-purple-600",
     espn: "bg-blue-500",
-    yahoo: "bg-yellow-400",
+    yahoo: "bg-yellow-400"
   };
 
   return (
     <div
       className="border rounded-lg p-4 shadow hover:shadow-md transition relative"
-      style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
+      style={{
+        backgroundColor: "var(--background)",
+        color: "var(--foreground)"
+      }}
     >
       {/* Header */}
       <div className="flex items-center mb-2">
         <span
-          className={`w-3 h-3 rounded-full mr-2 ${platformColors[name] || "bg-gray-400"}`}
+          className={`w-3 h-3 rounded-full mr-2 ${
+            platformColors[name] || "bg-gray-400"
+          }`}
         />
         <h2
           className="text-lg font-semibold capitalize"
@@ -45,7 +57,8 @@ export const PlatformCard = ({ platform, onAddLeague, onDeleteLeague, onDeletePl
         <div className="mt-2 space-y-3">
           {/* Account header */}
           <p className="text-sm text-gray-700">
-            <span className="font-medium">Account:</span> {account.username} ({name})
+            <span className="font-medium">Account:</span> {account.username} (
+            {name})
           </p>
 
           {/* Leagues */}
@@ -82,7 +95,11 @@ export const PlatformCard = ({ platform, onAddLeague, onDeleteLeague, onDeletePl
                 + Add League
               </button>
 
-              <button className="text-gray-500 hover:text-gray-700 text-sm" disabled={isResyncing || !account} onClick={onResyncing}>
+              <button
+                className="text-gray-500 hover:text-gray-700 text-sm"
+                disabled={isResyncing || !account}
+                onClick={onResyncing}
+              >
                 {isResyncing ? "⟳ Syncing..." : "⟳ Sync"}
               </button>
             </div>
@@ -99,7 +116,9 @@ export const PlatformCard = ({ platform, onAddLeague, onDeleteLeague, onDeletePl
       ) : (
         // If no account yet, allow adding account + league
         <div className="mt-4">
-          <p className="text-sm text-gray-700 mb-2">No account connected yet.</p>
+          <p className="text-sm text-gray-700 mb-2">
+            No account connected yet.
+          </p>
           <button
             onClick={onAddLeague}
             className="px-3 py-1 rounded text-white hover:opacity-90 transition"
@@ -111,4 +130,4 @@ export const PlatformCard = ({ platform, onAddLeague, onDeleteLeague, onDeletePl
       )}
     </div>
   );
-}
+};

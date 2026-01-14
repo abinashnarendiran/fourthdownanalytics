@@ -15,5 +15,5 @@ Leagues.belongsTo(FantasyPlatforms, { foreignKey: "fantasyPlatformId" });
 module.exports = {
   Users, // only export models
   FantasyPlatforms,
-  Leagues,
+  Leagues
 };

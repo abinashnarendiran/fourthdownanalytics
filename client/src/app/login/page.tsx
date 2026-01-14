@@ -20,14 +20,14 @@ const schema = z.object({
     .regex(
       /^(?=.*\d)(?=.*[^A-Za-z0-9]).*$/,
       "Password must contain at least 1 number and 1 special character"
-    ),
+    )
 });
 
 type LoginForm = z.infer<typeof schema>;
 
 // 1️⃣ Define User type (adjust fields as needed)
 interface User {
-  id: number;  // match the API
+  id: number; // match the API
   email: string;
   name?: string;
 }
@@ -43,9 +43,9 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
+    setError
   } = useForm<LoginForm>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema)
   });
 
   // 🔹 Redirect if already logged in
@@ -58,8 +58,8 @@ export default function LoginPage() {
   /**
    * 🔑 Login submit
    */
-const onSubmit = async (data: LoginForm) => {
-  const res = await login(data.email, data.password);
+  const onSubmit = async (data: LoginForm) => {
+    const res = await login(data.email, data.password);
 
     if (res[0] === null && res[1]) {
       // ✅ set the user exactly as returned from API
@@ -68,11 +68,10 @@ const onSubmit = async (data: LoginForm) => {
     } else {
       setError("root", {
         type: "server",
-        message: res[0]?.message || "Login failed",
+        message: res[0]?.message || "Login failed"
       });
     }
-};
-
+  };
 
   if (loading) return <p>Loading...</p>; // wait for AuthContext to load
 
@@ -87,7 +86,8 @@ const onSubmit = async (data: LoginForm) => {
 
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col gap-4">
+            className="flex flex-col gap-4"
+          >
             {/* Global error */}
             {errors.root && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -117,7 +117,8 @@ const onSubmit = async (data: LoginForm) => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-2 text-sm text-gray-500">
+                className="absolute right-2 top-2 text-sm text-gray-500"
+              >
                 {showPassword ? "Hide" : "Show"}
               </button>
             </div>
@@ -128,7 +129,8 @@ const onSubmit = async (data: LoginForm) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-blue-600 text-white py-2 rounded">
+              className="bg-blue-600 text-white py-2 rounded"
+            >
               {isSubmitting ? "Logging in..." : "Login"}
             </button>
           </form>
@@ -137,7 +139,8 @@ const onSubmit = async (data: LoginForm) => {
             No account?{" "}
             <button
               onClick={() => router.push("/signup")}
-              className="text-blue-600 underline">
+              className="text-blue-600 underline"
+            >
               Sign up
             </button>
           </p>

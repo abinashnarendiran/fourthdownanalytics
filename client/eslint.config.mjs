@@ -11,6 +11,10 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
   ]),
   {
+    parserOptions: {
+      ecmaVersion: 2021,
+      sourceType: 'module',
+    },
     rules: {
       // Indentation rules: 2 spaces
       indent: ['error', 2],

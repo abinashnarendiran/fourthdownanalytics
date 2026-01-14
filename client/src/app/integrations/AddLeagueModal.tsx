@@ -8,7 +8,10 @@ import { fetchSleeperAccount } from "@/api/intergrations";
 interface AddLeagueModalProps {
   platform: Platform;
   onClose: () => void;
-  onLeaguesAdded: (platformUser: PlatformUser | null, newLeagues: League[]) => void;
+  onLeaguesAdded: (
+    platformUser: PlatformUser | null,
+    newLeagues: League[]
+  ) => void;
   addError: boolean;
   addErrorMessage: string;
 }
@@ -20,9 +23,8 @@ export const AddLeagueModal: React.FC<AddLeagueModalProps> = ({
   addError,
   addErrorMessage
 }) => {
-   const currentYear = new Date().getFullYear();
+  const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
-
 
   const [step, setStep] = useState<1 | 2>(1);
   const [username, setUsername] = useState("");
@@ -33,7 +35,7 @@ export const AddLeagueModal: React.FC<AddLeagueModalProps> = ({
   const [error, setError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
- // Step 1: Fetch leagues based on username and year
+  // Step 1: Fetch leagues based on username and year
   const handleContinue = async () => {
     if (!username) return;
 
@@ -45,15 +47,17 @@ export const AddLeagueModal: React.FC<AddLeagueModalProps> = ({
       if (platform.platform === "Sleeper") {
         const getSleeperUser = await fetchSleeperAccount(username, year);
 
-        if(getSleeperUser[0] === null) {
-            setError(false)
-            setErrorMessage("");
-            setUserData(getSleeperUser[1]);
-            setLeagues(getSleeperUser[1]?.leagues as League[] || []);
-            setStep(2);
+        if (getSleeperUser[0] === null) {
+          setError(false);
+          setErrorMessage("");
+          setUserData(getSleeperUser[1]);
+          setLeagues((getSleeperUser[1]?.leagues as League[]) || []);
+          setStep(2);
         } else {
-            setError(true);
-            setErrorMessage(getSleeperUser[0]?.message || "Failed to fetch Sleeper account");
+          setError(true);
+          setErrorMessage(
+            getSleeperUser[0]?.message || "Failed to fetch Sleeper account"
+          );
         }
       }
     } catch (err) {
@@ -83,24 +87,24 @@ export const AddLeagueModal: React.FC<AddLeagueModalProps> = ({
     setLoading(false);
   };
 
-
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div
         className="bg-white rounded-lg p-6 w-full max-w-md"
-        style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
+        style={{
+          backgroundColor: "var(--background)",
+          color: "var(--foreground)"
+        }}
       >
-        <button
-          className="text-gray-500 text-sm mb-4"
-          onClick={onClose}
-        >
+        <button className="text-gray-500 text-sm mb-4" onClick={onClose}>
           ✕ Close
         </button>
 
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Add {platform.platform} League</h2>
+            <h2 className="text-lg font-semibold">
+              Add {platform.platform} League
+            </h2>
             <p>How would you like to find your leagues?</p>
 
             <input
@@ -140,7 +144,12 @@ export const AddLeagueModal: React.FC<AddLeagueModalProps> = ({
         )}
 
         {step === 2 && (
-          <LeaguePicker leagues={leagues} onSubmit={handleAddLeagues} addError={addError} addErrorMessage={addErrorMessage} />
+          <LeaguePicker
+            leagues={leagues}
+            onSubmit={handleAddLeagues}
+            addError={addError}
+            addErrorMessage={addErrorMessage}
+          />
         )}
       </div>
     </div>

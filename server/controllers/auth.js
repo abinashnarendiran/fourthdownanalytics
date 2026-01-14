@@ -1,13 +1,13 @@
-const bcrypt = require("bcrypt"); 
-const jwt = require("jsonwebtoken"); 
-const { Users } = require("../models"); 
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const { Users } = require("../models");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret"; // Secret for JWT signing
 const COOKIE_OPTIONS = {
   httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
-  secure: false,  // Set to true in production (HTTPS)
+  secure: false, // Set to true in production (HTTPS)
   sameSite: "lax", // CSRF protection
-  maxAge: 1000 * 60 * 60 * 24, // Cookie expiration time (1 day)
+  maxAge: 1000 * 60 * 60 * 24 // Cookie expiration time (1 day)
 };
 
 // Signup
@@ -18,16 +18,18 @@ module.exports.signup = async (req, res) => {
     // 1️⃣ Check if the email already exists
     const existingUser = await Users.findOne({ where: { email } });
     if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "Email already in use" }); // Return early if user exists
+      return res.status(400).json({ message: "Email already in use" }); // Return early if user exists
     }
 
     // 2️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, 10); // Hash the password
 
     // 3️⃣ Create user
-    const newUser = await Users.create({ name, email, password: hashedPassword }); // Save new user to database
+    const newUser = await Users.create({
+      name,
+      email,
+      password: hashedPassword
+    }); // Save new user to database
 
     // 4️⃣ Send success response
     res.status(201).json(newUser); // Respond with the created user

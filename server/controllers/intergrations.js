@@ -4,7 +4,7 @@ const {
   getSleeperUser,
   getSleeperLeagues,
   getSleeperDraftSettings,
-  getSleeperByLeagueId,
+  getSleeperByLeagueId
 } = require("../services/sleeper");
 const { Op } = require("sequelize");
 
@@ -19,15 +19,15 @@ module.exports.getUserPlatforms = async (req, res) => {
     const userPlatformsRaw = await FantasyPlatforms.findAll({
       where: {
         userId,
-        provider: { [Op.in]: allPlatforms },
+        provider: { [Op.in]: allPlatforms }
       },
       include: [
         {
           model: Leagues,
-          required: false, // allow platforms with no leagues
-        },
+          required: false // allow platforms with no leagues
+        }
       ],
-      nest: true,
+      nest: true
     });
 
     // Convert Sequelize instances to plain JS objects
@@ -45,8 +45,8 @@ module.exports.getUserPlatforms = async (req, res) => {
           leagueName: l.leagueName,
           seasonYear: l.seasonYear,
           type: l.type,
-          config: l.config,
-        })),
+          config: l.config
+        }))
       };
       return acc;
     }, {});
@@ -65,9 +65,9 @@ module.exports.getUserPlatforms = async (req, res) => {
               platformUserId: account.platformUserId,
               username: account.username,
               displayName: account.displayName,
-              leagues: account.leagues,
+              leagues: account.leagues
             }
-          : null,
+          : null
       };
     });
 
@@ -95,7 +95,7 @@ module.exports.fetchSleeperAccount = async (req, res) => {
       const sleeperUser = {
         platformUserId: sleeperAccount.user_id,
         platformUserName: sleeperAccount.username,
-        platformDisplayName: sleeperAccount.display_name,
+        platformDisplayName: sleeperAccount.display_name
       };
 
       // Fetch all leagues for this user from Sleeper API
@@ -113,23 +113,21 @@ module.exports.fetchSleeperAccount = async (req, res) => {
             where: {
               userId,
               provider: ENABLED_PLATFORMS.SLEEPER,
-              platformUserId: sleeperUser.platformUserId,
-            },
-          },
-        ],
+              platformUserId: sleeperUser.platformUserId
+            }
+          }
+        ]
       });
 
       // Create a Set of existing league IDs for quick lookup
-      const existingLeagueIds = new Set(
-        existingLeagues.map((l) => l.leagueId)
-      );
+      const existingLeagueIds = new Set(existingLeagues.map((l) => l.leagueId));
 
       // Map numeric Sleeper type codes to readable strings
       const leagueTypeMap = {
         0: "Redraft",
         1: "Keeper",
         2: "Dynasty",
-        3: "Guillotine",
+        3: "Guillotine"
       };
 
       // Process each Sleeper league and build response data
@@ -141,7 +139,7 @@ module.exports.fetchSleeperAccount = async (req, res) => {
           let draftSettings = { type: null, rounds: null, status: null };
           let scoringType = "Unknown";
           const draftData = await getSleeperDraftSettings(league.league_id);
-          
+
           if (draftData) {
             draftSettings.type = draftData.settings?.type || "Unknown";
             draftSettings.rounds = draftData?.settings?.rounds ?? null;
@@ -167,9 +165,9 @@ module.exports.fetchSleeperAccount = async (req, res) => {
               draft: draftSettings,
               waiver: {
                 type: league.settings?.waiver_type || null,
-                budget: league.settings?.waiver_budget || null,
+                budget: league.settings?.waiver_budget || null
               },
-              taxiSlots: league.settings?.taxi_slots || 0,
+              taxiSlots: league.settings?.taxi_slots || 0
             },
             // Flag whether this league is already added to the user's account
             added: existingLeagueIds.has(league.league_id)
@@ -195,23 +193,33 @@ module.exports.addLeagues = async (req, res) => {
     const { platformData } = req.body; // Extract platform data from the request body
 
     // Validate platform data
-    if (!platformData || !platformData.platformUserId || !platformData.leagues) {
+    if (
+      !platformData ||
+      !platformData.platformUserId ||
+      !platformData.leagues
+    ) {
       return res.status(400).json({ message: "Invalid platform data" }); // Return error if data is invalid
     }
 
-    const { platformUserId, platformUserName, platformDisplayName, leagues, platform } = platformData; // Destructure platform data
+    const {
+      platformUserId,
+      platformUserName,
+      platformDisplayName,
+      leagues,
+      platform
+    } = platformData; // Destructure platform data
 
     // Check for existing account
     let fantasyPlatform = await FantasyPlatforms.findOne({
       where: { userId, provider: platform }, // Find existing fantasy platform for the user
-      include: [Leagues], // Include leagues to check if any exist
+      include: [Leagues] // Include leagues to check if any exist
     });
 
     if (fantasyPlatform) {
       if (fantasyPlatform.Leagues && fantasyPlatform.Leagues.length > 0) {
         // Account has leagues, reject new account
         return res.status(400).json({
-          message: `You already have an account for ${platform}. Only one account allowed.`,
+          message: `You already have an account for ${platform}. Only one account allowed.`
         });
       } else {
         // Account exists but has no leagues → update it with new account info
@@ -227,14 +235,17 @@ module.exports.addLeagues = async (req, res) => {
         platformUserId,
         provider: platform,
         username: platformUserName,
-        displayName: platformDisplayName,
+        displayName: platformDisplayName
       });
     }
 
     // Add leagues
     for (const leagueData of leagues) {
       const existingLeague = await Leagues.findOne({
-        where: { leagueId: leagueData.leagueId, fantasyPlatformId: fantasyPlatform.fantasyPlatformId }, // Check if league already exists
+        where: {
+          leagueId: leagueData.leagueId,
+          fantasyPlatformId: fantasyPlatform.fantasyPlatformId
+        } // Check if league already exists
       });
 
       if (existingLeague) {
@@ -248,9 +259,8 @@ module.exports.addLeagues = async (req, res) => {
         seasonYear: leagueData.seasonYear,
         type: leagueData.type || "Redraft", // Default to "Redraft" if type is not provided
         config: leagueData.config || {}, // Default to empty config if not provided
-        fantasyPlatformId: fantasyPlatform.fantasyPlatformId, // Associate league with fantasy platform
+        fantasyPlatformId: fantasyPlatform.fantasyPlatformId // Associate league with fantasy platform
       });
-
     }
 
     res.json({ message: "Leagues added successfully" }); // Return success message
@@ -259,8 +269,6 @@ module.exports.addLeagues = async (req, res) => {
     res.status(500).json({ message: "Failed to add leagues" }); // Return error response
   }
 };
-
-
 
 module.exports.deleteLeague = async (req, res) => {
   // Implementation for deleting a league from user's account
@@ -274,9 +282,9 @@ module.exports.deleteLeague = async (req, res) => {
         {
           model: FantasyPlatforms,
           required: true,
-          where: { userId },
-        },
-      ],
+          where: { userId }
+        }
+      ]
     });
     // If not found, return 404
     if (!league) {
@@ -298,7 +306,7 @@ module.exports.deleteFantasyPlatform = async (req, res) => {
 
     // Find the fantasy platform to delete
     const fantasyPlatform = await FantasyPlatforms.findOne({
-      where: { fantasyPlatformId, userId },
+      where: { fantasyPlatformId, userId }
     });
 
     // If not found, return 404
@@ -308,7 +316,7 @@ module.exports.deleteFantasyPlatform = async (req, res) => {
 
     // Delete all leagues associated with this fantasy platform
     await Leagues.destroy({
-      where: { fantasyPlatformId: fantasyPlatform.fantasyPlatformId },
+      where: { fantasyPlatformId: fantasyPlatform.fantasyPlatformId }
     });
 
     // Delete the fantasy platform itself
@@ -328,14 +336,19 @@ module.exports.resyncPlatform = async (req, res) => {
   try {
     const userId = req.user.userId; // assuming req.user is set
     const { platformData } = req.body; // Extract platform data from request body
-    
-    const { account, platform } = platformData; // Destructure account and platform from platformData
-    const { fantasyPlatformId, platformUserId, username, displayName, leagues } = account; // Destructure account details
 
+    const { account, platform } = platformData; // Destructure account and platform from platformData
+    const {
+      fantasyPlatformId,
+      platformUserId,
+      username,
+      displayName,
+      leagues
+    } = account; // Destructure account details
 
     // Find existing fantasy platform
     const fantasyPlatform = await FantasyPlatforms.findOne({
-      where: { fantasyPlatformId, userId, provider: platform },
+      where: { fantasyPlatformId, userId, provider: platform }
     });
     if (!fantasyPlatform) {
       return res.status(404).json({ message: "Fantasy platform not found" }); // Handle case where platform is not found
@@ -357,7 +370,11 @@ module.exports.resyncPlatform = async (req, res) => {
       // Loop through leagues and update from Sleeper data
       for (const leagueData of leagues) {
         const existingLeague = await Leagues.findOne({
-          where: { id: leagueData.id, leagueId: leagueData.leagueId, fantasyPlatformId: fantasyPlatform.fantasyPlatformId },
+          where: {
+            id: leagueData.id,
+            leagueId: leagueData.leagueId,
+            fantasyPlatformId: fantasyPlatform.fantasyPlatformId
+          }
         });
         if (existingLeague) {
           // Update existing league
@@ -366,10 +383,12 @@ module.exports.resyncPlatform = async (req, res) => {
             0: "Redraft",
             1: "Keeper",
             2: "Dynasty",
-            3: "Guillotine",
+            3: "Guillotine"
           };
 
-          const getSleeperLeague = await getSleeperByLeagueId(leagueData.leagueId); // Fetch league details from Sleeper
+          const getSleeperLeague = await getSleeperByLeagueId(
+            leagueData.leagueId
+          ); // Fetch league details from Sleeper
           if (!getSleeperLeague) {
             continue; // Skip if league not found
           }
@@ -387,7 +406,10 @@ module.exports.resyncPlatform = async (req, res) => {
           // Update league details
           existingLeague.leagueName = getSleeperLeague.name;
           existingLeague.seasonYear = parseInt(getSleeperLeague.season, 10);
-          existingLeague.type = leagueData.settings?.type != null ? leagueTypeMap[leagueData.settings.type] : "Unknown";
+          existingLeague.type =
+            leagueData.settings?.type != null
+              ? leagueTypeMap[leagueData.settings.type]
+              : "Unknown";
           existingLeague.config = {
             scoringType: scoringType,
             totalRosters: leagueData.total_rosters,
@@ -396,9 +418,9 @@ module.exports.resyncPlatform = async (req, res) => {
             draft: draftSettings,
             waiver: {
               type: leagueData.settings?.waiver_type || null,
-              budget: leagueData.settings?.waiver_budget || null,
+              budget: leagueData.settings?.waiver_budget || null
             },
-            taxiSlots: leagueData.settings?.taxi_slots || 0,
+            taxiSlots: leagueData.settings?.taxi_slots || 0
           };
           await existingLeague.save(); // Save updated league info
         }
@@ -412,4 +434,3 @@ module.exports.resyncPlatform = async (req, res) => {
     res.status(500).json({ message: "Failed to resync platform" }); // Handle errors
   }
 };
-

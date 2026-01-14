@@ -22,11 +22,11 @@ const schema = z
         /^(?=.*\d)(?=.*[^A-Za-z0-9]).*$/,
         "Password must contain at least 1 number and 1 special character"
       ),
-    confirmPassword: z.string(),
+    confirmPassword: z.string()
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
-    path: ["confirmPassword"],
+    path: ["confirmPassword"]
   });
 
 type SignupForm = z.infer<typeof schema>;
@@ -42,9 +42,9 @@ export default function SignupPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
+    setError
   } = useForm<SignupForm>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema)
   });
 
   // Signup submit
@@ -52,7 +52,7 @@ export default function SignupPage() {
     const res = await signup({
       name: data.name,
       email: data.email,
-      password: data.password,
+      password: data.password
     });
 
     if (res[0] !== null) {
@@ -65,9 +65,9 @@ export default function SignupPage() {
     setSuccessMessage("Signup successful! Redirecting to login...");
 
     // Wait 2 seconds, then redirect
-   setTimeout(() => {
+    setTimeout(() => {
       router.push("/login");
-    }, 2000); 
+    }, 2000);
   };
 
   return (
@@ -77,9 +77,7 @@ export default function SignupPage() {
           Sign Up
         </h2>
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           {/* Global error alert */}
           {errors.root && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
@@ -126,7 +124,8 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-2 text-sm text-gray-500">
+              className="absolute right-2 top-2 text-sm text-gray-500"
+            >
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
@@ -145,7 +144,8 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-2 top-2 text-sm text-gray-500">
+              className="absolute right-2 top-2 text-sm text-gray-500"
+            >
               {showConfirmPassword ? "Hide" : "Show"}
             </button>
           </div>
@@ -158,7 +158,8 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="bg-blue-600 text-white py-2 rounded disabled:opacity-50">
+            className="bg-blue-600 text-white py-2 rounded disabled:opacity-50"
+          >
             {isSubmitting ? "Signing up..." : "Sign Up"}
           </button>
         </form>
@@ -167,7 +168,8 @@ export default function SignupPage() {
           Already have an account?{" "}
           <button
             onClick={() => router.push("/login")}
-            className="text-blue-600 underline">
+            className="text-blue-600 underline"
+          >
             Login
           </button>
         </p>

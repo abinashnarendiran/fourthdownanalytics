@@ -17,8 +17,8 @@ export const MainLayout = ({ children }: Props) => {
 
   const handleLogout = async () => {
     try {
-      await logout();       // call backend to clear cookie
-      setUser(null);        // reset AuthContext user
+      await logout(); // call backend to clear cookie
+      setUser(null); // reset AuthContext user
       router.push("/login"); // redirect to login
     } catch (err) {
       console.error("Logout failed:", err);
@@ -40,9 +40,24 @@ export const MainLayout = ({ children }: Props) => {
           <h6 className="text-l font-bold">Fourth Down Analytics</h6>
         </div>
         <nav className="flex flex-col gap-2">
-          <Link href="/" className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded">Dashboard</Link>
-          <Link href="/integrations" className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded">Connect Fantasy Platforms</Link>
-          <Link href="/profile" className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded">Profile</Link>
+          <Link
+            href="/"
+            className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded"
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/integrations"
+            className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded"
+          >
+            Connect Fantasy Platforms
+          </Link>
+          <Link
+            href="/profile"
+            className="hover:bg-[rgba(255,255,255,0.1)] p-2 rounded"
+          >
+            Profile
+          </Link>
         </nav>
       </aside>
 
@@ -50,9 +65,11 @@ export const MainLayout = ({ children }: Props) => {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <header className="sticky top-0 z-10 bg-[var(--background)] border-b border-gray-200 shadow px-4 py-3 flex justify-between items-center">
-          <h2 className="font-bold text-lg">Welcome{user ? `, ${user.name}` : ""}</h2>
+          <h2 className="font-bold text-lg">
+            Welcome{user ? `, ${user.name}` : ""}
+          </h2>
           <button
-            onClick={handleLogout}  // async logout handler
+            onClick={handleLogout} // async logout handler
             className="bg-[var(--accent)] text-white px-3 py-1 rounded hover:opacity-90"
           >
             Logout
@@ -64,4 +81,4 @@ export const MainLayout = ({ children }: Props) => {
       </div>
     </div>
   );
-}
+};

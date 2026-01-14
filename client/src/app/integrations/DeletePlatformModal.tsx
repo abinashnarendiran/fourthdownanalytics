@@ -14,7 +14,7 @@ export const DeletePlatformModal: React.FC<DeletePlatformModalProps> = ({
   platform,
   fantasyPlatformId,
   onClose,
-  onDeleteAccount,
+  onDeleteAccount
 }) => {
   // Loading state
   const [loading, setLoading] = useState(false);
@@ -37,20 +37,19 @@ export const DeletePlatformModal: React.FC<DeletePlatformModalProps> = ({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div
         className="bg-white rounded-lg p-6 w-full max-w-md"
-        style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
+        style={{
+          backgroundColor: "var(--background)",
+          color: "var(--foreground)"
+        }}
       >
-        <button
-          className="text-gray-500 text-sm mb-4"
-          onClick={onClose}
-        >
+        <button className="text-gray-500 text-sm mb-4" onClick={onClose}>
           ✕ Close
         </button>
 
-        <h2 className="text-lg font-semibold">
-          Delete Platform Account
-        </h2>
+        <h2 className="text-lg font-semibold">Delete Platform Account</h2>
         <p className="mt-2 text-gray-700">
-          Are you sure you want to delete the <strong>{platform.platform}</strong> account? 
+          Are you sure you want to delete the{" "}
+          <strong>{platform.platform}</strong> account?
           <br />
           <span className="text-sm text-gray-500">
             This will remove all connected leagues as well.
