@@ -125,6 +125,7 @@ const [selectedFantasyPlatformId, setSelectedFantasyPlatformId] =
 
       if (error) {
         setAddError(true);
+        setAddErrorMessage(error?.message || "");
       } else {
         setAddError(false);
         setAddErrorMessage("");
