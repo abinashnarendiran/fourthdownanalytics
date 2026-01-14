@@ -126,8 +126,7 @@ module.exports.fetchSleeperAccount = async (req, res) => {
       const leagueTypeMap = {
         0: "Redraft",
         1: "Keeper",
-        2: "Dynasty",
-        3: "Guillotine"
+        2: "Dynasty"
       };
 
       // Process each Sleeper league and build response data
@@ -146,6 +145,8 @@ module.exports.fetchSleeperAccount = async (req, res) => {
             draftSettings.status = draftData.status ?? null;
             scoringType = draftData?.metadata?.scoring_type || "Unknown";
           }
+
+          console.log("Type", leagueTypeMap[league.settings.type]);
 
           // Build league object with all relevant data
           leagues.push({
@@ -382,8 +383,7 @@ module.exports.resyncPlatform = async (req, res) => {
           const leagueTypeMap = {
             0: "Redraft",
             1: "Keeper",
-            2: "Dynasty",
-            3: "Guillotine"
+            2: "Dynasty"
           };
 
           const getSleeperLeague = await getSleeperByLeagueId(
