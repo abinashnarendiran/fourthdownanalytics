@@ -7,8 +7,7 @@ const sequelize = require("./config/db");
 
 const { authenticate } = require("./middleware/passport");
 
-const authRoutes = require("./routes/auth");
-const integrationsRoutes = require("./routes/integrations");
+const routes = require("./routes");
 
 const app = express(); // ← declare app BEFORE using it
 
@@ -25,9 +24,9 @@ app.use((req, res, next) => {
   authenticate(req, res, next);
 });
 
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/integrations", integrationsRoutes);
+// Mount all routes under /api
+app.use("/api", routes);
+
 
 // Database
 sequelize
