@@ -42,9 +42,19 @@ const getSleeperDraftSettings = async (leagueId) => {
   }
 };
 
+const getNFLState = async () => {
+  try {
+    const response = await axios.get(`${sleeperAPIURL}/state/nfl`);
+    return response.data;
+  } catch (err) {
+    return null;
+  }
+};
+
 module.exports = {
   getSleeperUser,
   getSleeperLeagues,
   getSleeperDraftSettings,
-  getSleeperByLeagueId
+  getSleeperByLeagueId,
+  getNFLState
 };

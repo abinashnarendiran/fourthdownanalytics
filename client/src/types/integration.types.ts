@@ -58,3 +58,53 @@ export interface PlatformUser {
 
   leagues: League[]; // simplest, allows anything
 }
+
+// ----------------------------
+// Platform account (user account on a fantasy platform)
+// ----------------------------
+export interface FantasyPlatformAccount {
+  fantasyPlatformId: string; // platform-specific user ID
+  userId: number;
+  provider: string;
+  platformUserId: string;
+  username: string;
+}
+
+// ----------------------------
+// League configuration details
+// ----------------------------
+export interface FantasyLeagueConfig {
+  draft: Record<string, any>;
+  waiver: Record<string, any>;
+  taxiSlots: number;
+  scoringType: string;
+  totalRosters: number;
+}
+
+// ----------------------------
+// League details (internal/selector use)
+// ----------------------------
+export interface FantasyLeague {
+  id: string; // internal unique ID
+  leagueId: string; // leagueId from platform
+  leagueName: string;
+  seasonYear: number;
+  type: string;
+  fantasyPlatformId: string;
+  fantasyPlatformAccount: FantasyPlatformAccount;
+  config: FantasyLeagueConfig;
+}
+
+// ----------------------------
+// Props for LeagueSelector component
+// ----------------------------
+export interface LeagueSelectorProps {
+  selected?: FantasyLeague; // currently selected league
+  fetchLeagues?: boolean; // whether to fetch leagues automatically
+  label?: string; // label text for the selector
+  className?: string; // wrapper class
+  selectClassName?: string; // select element class
+  onSelect?: (league: FantasyLeague) => void; // callback when a league is selected
+  onGetLeagues?: (leagues: FantasyLeague[]) => void; // callback when leagues are fetched
+  disabled?: boolean; // whether the selector is disabled
+}

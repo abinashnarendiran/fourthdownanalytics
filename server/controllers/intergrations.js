@@ -146,8 +146,6 @@ module.exports.fetchSleeperAccount = async (req, res) => {
             scoringType = draftData?.metadata?.scoring_type || "Unknown";
           }
 
-          console.log("Type", leagueTypeMap[league.settings.type]);
-
           // Build league object with all relevant data
           leagues.push({
             leagueId: league.league_id,
@@ -212,12 +210,12 @@ module.exports.addLeagues = async (req, res) => {
 
     // Check for existing account
     let fantasyPlatform = await FantasyPlatforms.findOne({
-      where: { userId, provider: platform }, // Find existing fantasy platform for the user
+      where: { userId, provider: platform, platformUserId }, // Find existing fantasy platform for the user
       include: [Leagues] // Include leagues to check if any exist
     });
 
     if (fantasyPlatform) {
-      if (fantasyPlatform.Leagues && fantasyPlatform.Leagues.length > 0) {
+      if (fantasyPlatform.platformUserId !== platformUserId) {
         // Account has leagues, reject new account
         return res.status(400).json({
           message: `You already have an account for ${platform}. Only one account allowed.`

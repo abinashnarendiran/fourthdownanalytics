@@ -6,8 +6,11 @@
   --foreground: #0B1C2D;
 
   /* Brand colors */
-  --primary: #0B1C2D; /* Deep Navy */
-  --accent: #1F6AE1;  /* Electric Blue */
+  --primary: #0B1C2D;
+  --accent: #1F6AE1;
+
+  /* UI */
+  --border: rgba(11, 28, 45, 0.2);
 }
 
 @theme inline {
@@ -19,16 +22,19 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-border: var(--border);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0B1C2D; /* Navy background */
+    --background: #0B1C2D;
     --foreground: #ffffff;
 
-    /* Same two colors, reused */
     --primary: #0B1C2D;
     --accent: #1F6AE1;
+
+    --border: rgba(255, 255, 255, 0.2);
   }
 }
 
