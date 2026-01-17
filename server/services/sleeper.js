@@ -51,10 +51,20 @@ const getNFLState = async () => {
   }
 };
 
+const getSleeperPlayers = async () => {
+  try {
+    const response = await axios.get(`${sleeperAPIURL}/players/nfl`);
+    return response.data;
+  } catch (err) {
+    return null;
+  }
+}
+
 module.exports = {
   getSleeperUser,
   getSleeperLeagues,
   getSleeperDraftSettings,
   getSleeperByLeagueId,
-  getNFLState
+  getNFLState,
+  getSleeperPlayers
 };

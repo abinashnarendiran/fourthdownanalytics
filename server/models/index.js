@@ -4,6 +4,7 @@ const sequelize = require("../config/db"); // import sequelize here to define mo
 const Users = require("./Users")(sequelize, DataTypes);
 const FantasyPlatforms = require("./FantasyPlatforms")(sequelize, DataTypes);
 const Leagues = require("./Leagues")(sequelize, DataTypes);
+const Players = require("./Players")(sequelize, DataTypes);
 
 // Define associations
 Users.hasMany(FantasyPlatforms, { foreignKey: "userId" });
@@ -15,5 +16,6 @@ Leagues.belongsTo(FantasyPlatforms, { foreignKey: "fantasyPlatformId" });
 module.exports = {
   Users, // only export models
   FantasyPlatforms,
-  Leagues
+  Leagues,
+  Players,
 };
