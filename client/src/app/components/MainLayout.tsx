@@ -32,7 +32,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   return (
-    <div className="flex h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <div className="flex h-screen bg-background text-foreground">
       {/* Sidebar */}
       <aside className="w-64 bg-primary text-white shrink-0 p-4">
         <div className="flex items-center gap-2 mb-6">
@@ -70,14 +70,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       {/* Main content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="sticky top-0 z-10 bg-[var(--background)] border-b border-gray-200 shadow px-6 py-4 flex justify-between items-center">
+        <header className="sticky top-0 z-10 bg-background border-b border-gray-200 shadow px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-foreground">
             {`Welcome${user ? `, ${user.name}` : ""}`}
           </h1>
 
           <button
             onClick={handleLogout}
-            className="bg-[var(--accent)] text-white px-3 py-1 rounded hover:opacity-90"
+            className="bg-accent text-white px-3 py-1 rounded hover:opacity-90"
           >
             Logout
           </button>
