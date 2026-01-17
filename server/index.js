@@ -27,6 +27,8 @@ app.use((req, res, next) => {
 // Mount all routes under /api
 app.use("/api", routes);
 
+// Start all cron jobs
+require("./cronjobs");
 
 // Database
 sequelize
