@@ -11,15 +11,21 @@ module.exports.getSleeperLeagueStatus = async (req, res) => {
     // Find league in your DB by internal ID
     const leagueRecord = await Leagues.findOne({ where: { id } });
     if (!leagueRecord) {
-      return res.status(404).json({ message: "League not found in your system" });
+      return res
+        .status(404)
+        .json({ message: "League not found in your system" });
     }
 
     const { leagueId, seasonYear } = leagueRecord;
 
     // Fetch NFL state once
     const nflState = await getNFLState();
-    const currentWeek = nflState?.week || null;
-    const currentSeason = nflState?.season || null;
+    console.log("NFL State:", nflState);
+
+    // NFL info
+    const nflWeek = nflState?.display_week ?? null;
+    const nflSeason = nflState?.season ?? null;
+    const nflSeasonType = nflState?.season_type ?? null;
 
     // Fetch league info from Sleeper
     const sleeperData = await getSleeperByLeagueId(leagueId);
@@ -27,25 +33,31 @@ module.exports.getSleeperLeagueStatus = async (req, res) => {
       return res.status(404).json({ message: "League not found on Sleeper" });
     }
 
-    const status = sleeperData.status || null;
-    const leagueSeason = sleeperData.season || seasonYear;
+    // Fantasy league info
+    const leagueSeason = sleeperData.season;
+    const sleeperStatus = sleeperData.status || "not_started";
 
-    // Determine if season is finished
-    const isSeasonFinished = status === "complete";
+    // Fantasy season finished?
+    const seasonFinished = sleeperStatus === "complete";
 
-    // Determine current week only if league year matches NFL current season
-    const week = leagueSeason === currentSeason ? currentWeek : null;
+    // ✅ Determine current fantasy week (CORRECT)
+    let currentWeek = null;
 
-    // Return the league status
+    if (
+      sleeperStatus === "in_season" &&
+      nflSeasonType === "regular" &&
+      leagueSeason === nflSeason
+    ) {
+      currentWeek = nflWeek;
+    }
+
+    // Return fantasy-season-only status
     res.json({
-      id,                  // internal DB id
-      leagueId,            // Sleeper league id
-      seasonYear: leagueSeason,
-      sleeperStatus: status,
-      isSeasonFinished,
-      currentWeek: week,
+      seasonYear:leagueSeason, // e.g. 2025
+      currentWeek, // null unless fantasy season is active
+      leagueStatus: sleeperStatus, // pre_draft | in_season | complete
+      seasonFinished
     });
-
   } catch (error) {
     console.error("Error fetching Sleeper league status:", error);
     res.status(500).json({ message: "Internal server error" });

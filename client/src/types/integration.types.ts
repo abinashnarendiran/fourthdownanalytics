@@ -100,7 +100,6 @@ export interface FantasyLeague {
 // ----------------------------
 export interface LeagueSelectorProps {
   selected?: FantasyLeague; // currently selected league
-  fetchLeagues?: boolean; // whether to fetch leagues automatically
   label?: string; // label text for the selector
   className?: string; // wrapper class
   selectClassName?: string; // select element class

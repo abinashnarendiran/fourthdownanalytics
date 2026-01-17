@@ -6,26 +6,20 @@ import { FantasyLeague, LeagueSelectorProps } from "@/types/integration.types";
 
 export default function LeagueSelector({
   selected,
-  fetchLeagues = true,
   label = "Select League",
   className = "",
   selectClassName = "",
   onSelect,
   onGetLeagues,
-  disabled = false,
+  disabled = false
 }: LeagueSelectorProps) {
   const [leagues, setLeagues] = useState<FantasyLeague[]>([]);
-  const [loading, setLoading] = useState(fetchLeagues);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch leagues from API
+  // Always fetch leagues on mount
   useEffect(() => {
-    if (!fetchLeagues) {
-      setLoading(false);
-      return;
-    }
-
-    const fetch = async () => {
+    const fetchLeagues = async () => {
       try {
         const data = await getUserLeagues();
         let leaguesData: FantasyLeague[] = [];
@@ -46,8 +40,8 @@ export default function LeagueSelector({
       }
     };
 
-    fetch();
-  }, [fetchLeagues, onGetLeagues]);
+    fetchLeagues();
+  }, []);
 
   return (
     <div className={`w-full max-w-xs ${className}`}>
@@ -81,7 +75,9 @@ export default function LeagueSelector({
           {loading && <option>Loading leagues...</option>}
 
           {!loading && leagues.length === 0 && (
-            <option value="" disabled>No leagues available</option>
+            <option value="" disabled>
+              No leagues available
+            </option>
           )}
 
           {!loading &&
