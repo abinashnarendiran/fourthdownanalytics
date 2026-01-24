@@ -28,7 +28,7 @@ const syncSleeperPlayers = async () => {
         metadata: {
           college: p.college ?? null,
           height: p.height ?? null,
-          weight: p.weight ? parseInt(p.weight) : null,
+          weight: p.weight ? parseInt(p.weight, 10) : null,
           age: p.age ?? null,
           birthCountry: p.birth_country ?? null,
           injuryStartDate: p.injury_start_date ?? null,
@@ -36,7 +36,7 @@ const syncSleeperPlayers = async () => {
           statsId: p.stats_id ?? null,
           rotowireId: p.rotowire_id ?? null,
           sportradarId: p.sportradar_id ?? null,
-        }
+        },
       }));
 
     await Players.bulkCreate(players, {
@@ -53,11 +53,9 @@ const syncSleeperPlayers = async () => {
         "rotoworldId",
         "fantasyPositions",
         "fantasyDataId",
-        "metadata"
-      ]
+        "metadata",
+      ],
     });
-
-    console.log(`✅ Synced ${players.length} players`);
   } catch (err) {
     console.error("❌ Sleeper sync failed:", err.message);
   }
@@ -75,5 +73,5 @@ function scheduleSyncSleperPlayers() {
 // Export both
 module.exports = {
   syncSleeperPlayers,
-  scheduleSyncSleperPlayers
+  scheduleSyncSleperPlayers,
 };
