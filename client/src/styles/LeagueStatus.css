@@ -1,0 +1,46 @@
+.league-card {
+  background: var(--background);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+  transition: transform 0.3s, box-shadow 0.3s;
+  max-width: 350px;
+  margin: 0 auto 1.5rem;
+}
+
+.league-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 35px rgba(0,0,0,0.15);
+}
+
+.league-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1rem;
+  color: var(--foreground);
+}
+
+.league-content p {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+  color: var(--foreground);
+}
+
+.label {
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Status badge colors using your theme variables */
+.bg-pre_draft { background: var(--accent, #1F6AE1, 0.1); color: var(--accent); }
+.bg-drafting { background: #FCEFCF; color: #D97706; }
+.bg-in_season { background: #DCFCE7; color: #15803D; }
+.bg-complete { background: #E5E7EB; color: #374151; }

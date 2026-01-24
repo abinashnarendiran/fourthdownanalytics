@@ -1,0 +1,104 @@
+/* Container and page layout */
+.container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: var(--font-sans, Arial);
+}
+
+.title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 2rem;
+  color: var(--foreground);
+}
+
+/* Card grid */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr; /* one per row for compact leaderboard */
+  gap: 0.8rem; /* smaller vertical spacing between rows */
+}
+
+.card {
+  background: var(--background);
+  border-radius: 12px;         /* rounded corners */
+  border: 1px solid var(--border, rgba(0,0,0,0.15)); /* subtle border */
+  transition: transform 0.2s, box-shadow 0.2s, border 0.3s;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  border-color: var(--accent, #1F6AE1); /* subtle highlight on hover */
+}
+
+/* Top row layout */
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Owner + Power Score column */
+.ownerColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+.owner {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.powerScore {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--accent);
+  margin-top: 0.1rem;
+}
+
+/* Arrow toggle */
+.arrow {
+  transition: transform 0.3s;
+  font-size: 0.85rem;
+}
+
+.arrowExpanded {
+  transform: rotate(180deg);
+}
+
+/* Expanded stats */
+.expandedStats {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  gap: 1rem;
+  font-size: 0.8rem;
+}
+
+.statColumn div {
+  margin-bottom: 0.5rem;
+}
+
+/* Top 3 team backgrounds */
+.first {
+  background: linear-gradient(135deg, #ffd700, #ffec8b);
+}
+
+.second {
+  background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+}
+
+.third {
+  background: linear-gradient(135deg, #cd7f32, #e0a96d);
+}

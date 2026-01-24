@@ -7,7 +7,7 @@ const COOKIE_OPTIONS = {
   httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
   secure: false, // Set to true in production (HTTPS)
   sameSite: "lax", // CSRF protection
-  maxAge: 1000 * 60 * 60 * 24 // Cookie expiration time (1 day)
+  maxAge: 1000 * 60 * 60 * 24, // Cookie expiration time (1 day)
 };
 
 // Signup
@@ -28,14 +28,14 @@ module.exports.signup = async (req, res) => {
     const newUser = await Users.create({
       name,
       email,
-      password: hashedPassword
+      password: hashedPassword,
     }); // Save new user to database
 
     // 4️⃣ Send success response
-    res.status(201).json(newUser); // Respond with the created user
+    return res.status(201).json(newUser); // Respond with the created user
   } catch (err) {
     console.error(err); // Log error
-    res.status(500).json({ message: "Try Again" }); // Respond with error message
+    return res.status(500).json({ message: "Try Again" }); // Respond with error message
   }
 };
 
@@ -55,12 +55,12 @@ module.exports.login = async (req, res) => {
   const token = jwt.sign(
     { userId: user.userId, name: user.name, email: user.email },
     JWT_SECRET,
-    { expiresIn: "1d" } // Token expiration time (1 day)
+    { expiresIn: "1d" }, // Token expiration time (1 day)
   );
 
   res.cookie("auth_token", token, COOKIE_OPTIONS); // Set cookie with token
 
-  res.json({ userId: user.userId, name: user.name, email: user.email }); // Respond with user data
+  return res.json({ userId: user.userId, name: user.name, email: user.email }); // Respond with user data
 };
 
 // Logout
@@ -76,9 +76,9 @@ module.exports.me = (req, res) => {
     if (!token) return res.status(401).json({ message: "Not authenticated" }); // Respond if no token
 
     const decoded = jwt.verify(token, JWT_SECRET); // Verify token
-    res.json(decoded); // Respond with decoded token data
+    return res.json(decoded); // Respond with decoded token data
   } catch {
-    res.status(401).json({ message: "Invalid token" }); // Respond if token is invalid
+    return res.status(401).json({ message: "Invalid token" }); // Respond if token is invalid
   }
 };
 

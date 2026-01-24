@@ -6,20 +6,28 @@ import { MainLayout } from "../components/MainLayout";
 import { Protected } from "../components/Protected";
 import { FantasyLeague } from "@/types/integration.types";
 import { get } from "http";
-import { getSleeperLeagueStatus } from "@/api/sleeper";
+import {
+  getSleeperCompleteSeasonData,
+  getSleeperLeagueStatus,
+} from "@/api/sleeper";
 import { set } from "zod";
 import { LEAGUE_STATUS_LABELS } from "@/constants/leagueStatusSleeper";
 import { LeagueStatusCard } from "../components/LeagueStatusCard";
+import { fa } from "zod/locales";
+import CompleteSeason from "./CompleteSeason/CompleteSeason";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export const Dashboard = () => {
   const [leagues, setLeagues] = useState<FantasyLeague[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<FantasyLeague | null>(
-    null
+    null,
   );
   const [dataFound, setDataFound] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const [leagueMetaData, setLeagueMetaData] = useState<any>(null);
+  const [seasonData, setSeasonData] = useState<any>(null);
+
   // Called when LeagueSelector fetches leagues
   const handleGetLeagues = (data: FantasyLeague[]) => {
     setLeagues(data);
@@ -27,6 +35,7 @@ export const Dashboard = () => {
 
   // Called when user selects a league manually
   const handleSelectLeague = async (league: FantasyLeague) => {
+    setSeasonData(null);
     setSelectedLeague(league);
     setLoading(true);
     await fetchLeagueData(league.id);
@@ -40,7 +49,7 @@ export const Dashboard = () => {
 
       // Find latest season league
       const latestLeague = leagues.reduce((prev, curr) =>
-        curr.seasonYear > prev.seasonYear ? curr : prev
+        curr.seasonYear > prev.seasonYear ? curr : prev,
       );
 
       // Only set if not already selected
@@ -69,7 +78,17 @@ export const Dashboard = () => {
       setLeagueMetaData(null);
     } else {
       setLeagueMetaData(sleeperStatus[1]);
-      let errorStatus = false;
+      errorStatus = false;
+    }
+
+    if (!errorStatus) {
+      const x = await getSleeperCompleteSeasonData(id);
+      console.log(x[1]);
+      if (x[0] === null) {
+        setSeasonData(x[1]);
+        setError(false);
+      } else {
+      }
     }
     // API call here...
   };
@@ -82,8 +101,16 @@ export const Dashboard = () => {
           onGetLeagues={handleGetLeagues}
           onSelect={handleSelectLeague}
         />
-        {!loading && leagueMetaData && (
-          <LeagueStatusCard leagueMetaData={leagueMetaData} />
+
+        {loading && <LoadingSpinner />}
+
+        {!loading && leagueMetaData && seasonData && (
+          <>
+            <LeagueStatusCard leagueMetaData={leagueMetaData} />
+            {leagueMetaData.leagueStatus === "complete" && (
+              <CompleteSeason seasonData={seasonData} />
+            )}
+          </>
         )}
       </MainLayout>
     </Protected>

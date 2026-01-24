@@ -24,3 +24,25 @@ export const getSleeperLeagueStatus = async (
     return [e, null];
   }
 };
+
+// Use unknown instead of any
+export const getSleeperCompleteSeasonData = async (
+  id: string
+): Promise<ApiResult> => {
+  try {
+    const response = await api.post("/sleeper/getSleeperCompleteSeasonData", {
+      id
+    });
+
+    return [null, response.data];
+  } catch (err) {
+    const error = err as AxiosError;
+    const e: Error =
+      (error?.response?.data as unknown as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+    return [e, null];
+  }
+};
+
+

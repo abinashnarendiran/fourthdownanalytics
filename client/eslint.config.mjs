@@ -1,14 +1,17 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
+import airbnbBase from 'eslint-config-airbnb-base';
+import prettier from 'eslint-config-prettier';
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  // Override default ignores of eslint-config-next.
+  ...airbnbBase,
+  ...prettier,
+  // Optional: global ignores
   globalIgnores([
     '.next/**',
     'out/**',
     'build/**',
     'next-env.d.ts',
+    'node_modules/**',
   ]),
   {
     parserOptions: {
@@ -16,12 +19,16 @@ const eslintConfig = defineConfig([
       sourceType: 'module',
     },
     rules: {
-      // Indentation rules: 2 spaces
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
+      'import/prefer-default-export': 'off',
+      'no-nested-ternary': 'off',
+      'import/order': 'off',
+      'no-undef': 'error',
+
+      // Optional: Airbnb overrides
       indent: ['error', 2],
       'no-mixed-spaces-and-tabs': 'error',
-
-      // Optional: enforce single quotes and semicolons
-      quotes: 'off', // disables the rule entirely
+      quotes: 'off',
       semi: ['error', 'always'],
     },
   },
