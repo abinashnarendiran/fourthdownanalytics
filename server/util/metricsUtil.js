@@ -43,8 +43,12 @@ const computeLeagueAverages = (projectedPlayers) => {
   };
 };
 
-const computeTeamProjections = (rosters, projectedPlayersMap, settings) => {
-  const slots = getLineupSlots(settings);
+const computeTeamProjections = (
+  rosters,
+  projectedPlayersMap,
+  rosterPositions,
+) => {
+  const slots = getLineupSlots(rosterPositions);
 
   const rankings = rosters.map((roster) => {
     const players = roster.players || [];
@@ -106,11 +110,11 @@ const computeTeamProjections = (rosters, projectedPlayersMap, settings) => {
 const computeFinalPowerRankings = (
   rosters,
   matchupsByWeek,
-  settings,
+  weekSettings,
   winnersBracket = [],
   losersBracket = [],
 ) => {
-  const { regularSeasonWeeks } = getLeagueWeeks(settings);
+  const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
 
   const teams = {};
   const leagueScores = [];
@@ -294,7 +298,7 @@ const computeLineupEfficiency = async (
   matchupsByWeek,
   rosters,
   scoringSettings,
-  draftSettings,
+  rosterPositions,
   seasonYear,
   dashboard,
 ) => {
@@ -302,7 +306,7 @@ const computeLineupEfficiency = async (
   const weeklyEfficiencyMap = {}; // per roster, per week
 
   // Slots from draftSettings
-  const slots = getLineupSlots(draftSettings);
+  const slots = getLineupSlots(rosterPositions);
 
   // Caches
   const statsCache = {};

@@ -182,8 +182,8 @@ const getPreseasonProjections = async (seasonYear, scoringSettings) => {
   }
 };
 
-const getAllMatchups = async (leagueId, settings) => {
-  const { totalScoringWeeks } = getLeagueWeeks(settings);
+const getAllMatchups = async (leagueId, weekSettings) => {
+  const { totalScoringWeeks } = getLeagueWeeks(weekSettings);
 
   const weeks = Array.from({ length: totalScoringWeeks }, (_, i) => i + 1);
 

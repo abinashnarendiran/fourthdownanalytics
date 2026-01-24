@@ -10,7 +10,6 @@ const {
   getAllMatchups,
   getPlayoffsWinnersBracket,
   getPlayoffsLosersBracket,
-  getSleeperDraftSettings,
 } = require("../services/sleeper"); // adjust path
 const {
   computeLeagueAverages,
@@ -102,17 +101,21 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
         .json({ message: "League not found in your system" });
     }
 
-    const { leagueId, seasonYear } = leagueRecord;
+    const { leagueId, seasonYear, config } = leagueRecord;
+
+    const {
+      scoringSettings,
+      rosterPositions,
+      playoffRoundType,
+      playoffWeekStart,
+      playoffTeams,
+    } = config;
 
     // Fetch league info from Sleeper
     const sleeperData = await getSleeperByLeagueId(leagueId);
     if (!sleeperData) {
       return res.status(404).json({ message: "League not found on Sleeper" });
     }
-
-    const draftData = await getSleeperDraftSettings(leagueId);
-
-    const draftSettings = draftData[0].settings ?? {};
 
     // Rosters & Users (always fetch)
 
@@ -124,7 +127,9 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
 
     rosters = attachUsersToRosters(rosters, users);
 
-    const { totalScoringWeeks } = getLeagueWeeks(sleeperData.settings);
+    const weekSettings = { playoffRoundType, playoffWeekStart, playoffTeams };
+
+    const { totalScoringWeeks } = getLeagueWeeks(weekSettings);
 
     // Determine league status
     const sleeperStatus = sleeperData.status || "pre_draft";
@@ -135,7 +140,7 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
     if (sleeperStatus === "pre_draft") {
       const projectedPlayers = await getPreseasonProjections(
         seasonYear,
-        sleeperData.scoring_settings,
+        scoringSettings,
       );
 
       // Map projections for O(1) lookup
@@ -149,7 +154,7 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
       const projectedPowerRankings = computeTeamProjections(
         rosters,
         projectedPlayersMap,
-        draftSettings,
+        rosterPositions,
       );
 
       return res.status(200).json({
@@ -167,17 +172,14 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
       // For COMPLETE season, set week to total scoring weeks
       // so that front-end can fetch all matchups
 
-      const matchupsByWeek = await getAllMatchups(
-        leagueId,
-        sleeperData.settings,
-      );
+      const matchupsByWeek = await getAllMatchups(leagueId, weekSettings);
 
       const winnersBracket = await getPlayoffsWinnersBracket(leagueId);
       const losersBracket = await getPlayoffsLosersBracket(leagueId);
       const finalPowerRankings = computeFinalPowerRankings(
         rosters,
         matchupsByWeek,
-        sleeperData.settings,
+        weekSettings,
         winnersBracket,
         losersBracket,
       );
@@ -187,7 +189,7 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
         matchupsByWeek,
         rosters,
         sleeperData.scoring_settings,
-        draftSettings,
+        rosterPositions,
         seasonYear,
         true,
       );

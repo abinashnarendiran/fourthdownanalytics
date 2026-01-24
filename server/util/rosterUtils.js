@@ -73,27 +73,25 @@ const attachUsersToRosters = (rosters, users) => {
   }));
 };
 
-const getLineupSlots = (settings = {}) => ({
-  QB: Number(settings.slots_qb) || 1,
-  RB: Number(settings.slots_rb) || 2,
-  WR: Number(settings.slots_wr) || 2,
-  TE: Number(settings.slots_te) || 1,
-  FLEX: Number(settings.slots_flex) || 0,
-  DST: Number(settings.slots_def) || 0,
-  K: Number(settings.slots_k) || 0,
-});
-
+const getLineupSlots = (rosterPositions) =>
+  rosterPositions.reduce(
+    (counts, pos) => ({
+      ...counts,
+      [pos]: (counts[pos] || 0) + 1,
+    }),
+    {},
+  );
 // Helper to calculate league weeks
 const getLeagueWeeks = (settings) => {
-  const playoffStart = settings.playoff_week_start || 15;
-  const playoffTeams = settings.playoff_teams || 0;
+  const playoffStart = settings.playoffRoundType || 15;
+  const playoffTeams = settings.playoffTeams || 0;
 
   const regularSeasonWeeks = playoffStart - 1;
   let rounds = 0;
   if (playoffTeams > 0) {
     rounds = Math.ceil(Math.log2(playoffTeams));
   }
-  const playoffWeeks = rounds * (settings.playoff_round_type === 1 ? 2 : 1);
+  const playoffWeeks = rounds * (settings.playoffRoundType === 1 ? 2 : 1);
 
   return {
     playoffStart,

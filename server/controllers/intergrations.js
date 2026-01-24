@@ -140,11 +140,11 @@ module.exports.fetchSleeperAccount = async (req, res) => {
 
           const draftData = await getSleeperDraftSettings(league.league_id);
 
-          if (draftData) {
-            draftSettings.type = draftData.settings?.type || "Unknown";
-            draftSettings.rounds = draftData.settings?.rounds ?? null;
-            draftSettings.status = draftData.status ?? null;
-            scoringType = draftData.metadata?.scoring_type || "Unknown";
+          if (draftData.length === 1) {
+            draftSettings.type = draftData[0]?.type || "Unknown";
+            draftSettings.rounds = draftData[0].settings?.rounds ?? null;
+            draftSettings.status = draftData[0].status ?? null;
+            scoringType = draftData[0].metadata?.scoring_type || "Unknown";
           }
 
           return {
@@ -166,6 +166,9 @@ module.exports.fetchSleeperAccount = async (req, res) => {
                 budget: league.settings?.waiver_budget || null,
               },
               taxiSlots: league.settings?.taxi_slots || 0,
+              playoffWeekStart: league.settings.playoff_week_start || 15,
+              playoffTeams: league.settings.playoff_teams,
+              playoffRoundType: league.settings.playoff_round_type,
             },
             added: existingLeagueIds.has(league.league_id),
           };
