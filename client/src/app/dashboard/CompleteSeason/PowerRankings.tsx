@@ -8,7 +8,7 @@ export interface PowerRankingsProps {
 }
 
 const PowerRankings: React.FC<PowerRankingsProps> = ({
-  finalPowerRankings
+  finalPowerRankings,
 }) => {
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
@@ -17,59 +17,59 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
     {
       label: "Power Score",
       description:
-        "Overall performance score combining points, wins, consistency, playoffs, and schedule difficulty."
+        "Overall performance score combining points, wins, consistency, playoffs, and schedule difficulty.",
     },
     {
       label: "Total Points",
-      description: "Points scored during the regular season."
+      description: "Points scored during the regular season.",
     },
     {
       label: "Playoff Points",
-      description: "Points scored during playoffs only."
+      description: "Points scored during playoffs only.",
     },
     {
       label: "Wins",
-      description: "Number of matches won during the regular season."
+      description: "Number of matches won during the regular season.",
     },
     {
       label: "Expected Wins",
       description:
-        "Number of wins your team was expected to have based on league median performance."
+        "Number of wins your team was expected to have based on league median performance.",
     },
     {
       label: "Luck",
       description:
-        "Shows how your team's actual wins compare to expected wins. Positive = lucky wins, Negative = unlucky losses."
+        "Shows how your team's actual wins compare to expected wins. Positive = lucky wins, Negative = unlucky losses.",
     },
     {
       label: "Consistency",
       description:
-        "Measures how steady your team scored each week. Values closer to 1 = very consistent, values closer to 0 = inconsistent."
+        "Measures how steady your team scored each week. Values closer to 1 = very consistent, values closer to 0 = inconsistent.",
     },
     {
       label: "Strength of Schedule",
       description:
-        "Measures the difficulty of your opponents relative to the league. Values >1 = tougher opponents, values <1 = easier opponents."
+        "Measures the difficulty of your opponents relative to the league. Values >1 = tougher opponents, values <1 = easier opponents.",
     },
     {
       label: "Championship",
-      description: "Winner of the league."
+      description: "Winner of the league.",
     },
     {
       label: "Runner-Up",
-      description: "Second place in the league."
+      description: "Second place in the league.",
     },
     {
       label: "Last Place",
-      description: "Indicates whether your team finished in last place."
-    }
+      description: "Indicates whether your team finished in last place.",
+    },
   ];
 
   const toggleRow = (rosterId: number) => {
     setExpandedRows((prev) =>
       prev.includes(rosterId)
         ? prev.filter((id) => id !== rosterId)
-        : [...prev, rosterId]
+        : [...prev, rosterId],
     );
   };
 
@@ -93,13 +93,11 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
                       : team.rank === 3
                         ? styles.third
                         : ""
-                }`}
-              >
+                }`}>
                 {/* Top row: Rank, Owner, Power Score, Arrow */}
                 <div
                   className={styles.topRow}
-                  onClick={() => toggleRow(team.rosterId)}
-                >
+                  onClick={() => toggleRow(team.rosterId)}>
                   <div className={styles.rank}>#{team.rank}</div>
                   <div className={styles.ownerColumn}>
                     <div className={styles.owner}>{team.owner}</div>
@@ -110,8 +108,7 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
                   <div
                     className={`${styles.arrow} ${
                       isExpanded ? styles.arrowExpanded : ""
-                    }`}
-                  >
+                    }`}>
                     ▼
                   </div>
                 </div>
@@ -120,6 +117,7 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
                 {isExpanded && (
                   <div className={styles.expandedStats}>
                     <div className={styles.statColumn}>
+                      <div>Total Points: {team.totalPoints} </div>
                       <div>Wins: {team.wins}</div>
                       <div>Expected Wins: {team.expectedWins}</div>
                       <div>Playoff Points: {team.playoffPoints.toFixed(2)}</div>

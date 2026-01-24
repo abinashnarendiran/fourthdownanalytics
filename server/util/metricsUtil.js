@@ -89,7 +89,7 @@ const computeTeamProjections = (
     total += sumTop(flexPool, slots.FLEX);
 
     return {
-      rosterId: roster.roster_id,
+      rosterId: roster.rosterId,
       owner: roster.owner?.display_name || "Unknown",
       projectedPoints: Number(total.toFixed(2)),
     };
@@ -124,7 +124,7 @@ const computeFinalPowerRankings = (
   // -----------------------------
   rosters.forEach((r) => {
     teams[r.rosterId] = {
-      rosterId: r.roster_id,
+      rosterId: r.rosterId,
       owner: r.owner?.display_name || "Unknown",
       points: 0,
       wins: 0,
@@ -142,7 +142,12 @@ const computeFinalPowerRankings = (
   // -----------------------------
   // REGULAR SEASON ONLY
   // -----------------------------
-  Object.entries(matchupsByWeek).forEach(([, matchups]) => {
+  Object.entries(matchupsByWeek).forEach(([week, matchups]) => {
+    // Only process weeks up to regularSeasonWeeks
+    if (Number(week) > regularSeasonWeeks) return;
+    console.log(week);
+    console.log(matchups);
+
     const scores = matchups.map((m) => m.points);
     if (!scores.length) return;
 
@@ -238,7 +243,7 @@ const computeFinalPowerRankings = (
     if (t.lastPlace) powerScore -= 25;
 
     return {
-      roster_id: t.roster_id,
+      rosterId: t.rosterId,
       owner: t.owner,
       totalPoints: Number(t.points.toFixed(2)),
       playoffPoints: Number(t.playoffPoints.toFixed(2)),
