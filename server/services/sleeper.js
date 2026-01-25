@@ -2,6 +2,7 @@ const axios = require("axios");
 const { Players } = require("../models");
 const { getLeagueWeeks } = require("../util/rosterUtils");
 const { calculateFantasyPoints } = require("../util/metricsUtil");
+const { regularSeasonWeeks } = require("../constants/nflState");
 
 const sleeperAPIURL = "https://api.sleeper.app/v1";
 
@@ -155,7 +156,7 @@ const getPreseasonProjections = async (seasonYear, scoringSettings) => {
       if (gamesPlayed < 4) return;
 
       const ppg = fantasyPoints / gamesPlayed;
-      const expectedGames = 17;
+      const expectedGames = regularSeasonWeeks;
       const regressionFactor = 0.9;
       const projectedPoints = ppg * expectedGames * regressionFactor;
 
