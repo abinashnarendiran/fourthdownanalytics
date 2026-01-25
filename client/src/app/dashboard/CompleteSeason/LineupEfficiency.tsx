@@ -1,69 +1,81 @@
 // components/LineupEfficiency.tsx
 import React, { useState } from "react";
-import styles from "../../../styles/PowerRankings.module.css"; // reuse your card styles
+import styles from "../../../styles/Dashboard.module.css"; // reuse your card styles
 import { LineupEfficiencyItem } from "./CompleteSeason";
-
-
 
 export interface LineupEfficiencyProps {
   lineupEfficiency: LineupEfficiencyItem[];
 }
 
-const LineupEfficiency: React.FC<LineupEfficiencyProps> = ({ lineupEfficiency }) => {
+const LineupEfficiency: React.FC<LineupEfficiencyProps> = ({
+  lineupEfficiency,
+}) => {
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
-
-  const toggleRow = (rosterId: string | number) => {
+  const toggleRow = (id: string | number) =>
     setExpandedRows((prev) =>
-      prev.includes(rosterId.toString())
-        ? prev.filter((id) => id !== rosterId.toString())
-        : [...prev, rosterId.toString()]
+      prev.includes(id.toString())
+        ? prev.filter((i) => i !== id.toString())
+        : [...prev, id.toString()],
     );
-  };
 
   return (
     <div className={styles.container}>
       <h2 className={styles.title}>Lineup Efficiency</h2>
+      <p className={styles.subtitle}>
+        Includes regular season, playoffs (Winners & Losers brackets), and
+        consolation matches.
+      </p>
       <div className={styles.cards}>
         {lineupEfficiency
-          .sort((a, b) => b.efficiency - a.efficiency) // sort descending
-          .map((team) => {
+          .sort((a, b) => b.efficiency - a.efficiency)
+          .map((team, index) => {
             const isExpanded = expandedRows.includes(team.rosterId.toString());
-
-            // Color coding: green ≥ 0.9, yellow 0.8–0.9, red < 0.8
-            let efficiencyColor = "red";
-            if (team.efficiency >= 0.9) efficiencyColor = "green";
-            else if (team.efficiency >= 0.8) efficiencyColor = "orange";
+            let badgeClass =
+              team.efficiency >= 90
+                ? styles.luckBadgePos
+                : team.efficiency >= 80
+                  ? styles.badgeWarn
+                  : styles.luckBadgeNeg;
 
             return (
-              <div key={team.rosterId} className={styles.card}>
-                {/* Top row: Owner / Team / Efficiency */}
+              <div
+                key={team.rosterId}
+                className={`${styles.card} ${index === 0 ? styles.first : index === 1 ? styles.second : index === 2 ? styles.third : ""}`}>
                 <div
                   className={styles.topRow}
-                  onClick={() => toggleRow(team.rosterId)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div className={styles.ownerColumn}>
-                    <div className={styles.owner}>{team.owner}</div>
-                    <div style={{ color: efficiencyColor, fontWeight: 600 }}>
-                      Efficiency: {(team.efficiency)}%
+                  onClick={() => toggleRow(team.rosterId)}>
+                  <div className={styles.leftSection}>
+                    <span className={styles.rank}>#{index + 1}</span>
+                    <div className={styles.ownerColumn}>
+                      <div className={styles.owner}>{team.owner}</div>
+                      <div className={styles.teamName}>
+                        {team.teamName || "No Team Name"}
+                      </div>
                     </div>
                   </div>
-                  <div
-                    className={`${styles.arrow} ${
-                      isExpanded ? styles.arrowExpanded : ""
-                    }`}
-                  >
-                    ▼
+                  <div className={styles.rightSection}>
+                    <div className={`${styles.badge} ${badgeClass}`}>
+                      {team.efficiency}%
+                    </div>
+                    <div
+                      className={`${styles.arrow} ${isExpanded ? styles.arrowExpanded : ""}`}>
+                      ▼
+                    </div>
                   </div>
                 </div>
-
-                {/* Expanded stats */}
                 {isExpanded && (
                   <div className={styles.expandedStats}>
-                    <div className={styles.statColumn}>
-                      <div>Actual Points: {team.actual}</div>
-                      <div>Optimal Points: {team.optimal}</div>
-                      <div>Missed Points: {team.missedPoints}</div>
+                    <div className={styles.statItem}>
+                      <small>ACTUAL</small>
+                      <strong>{team.actual}</strong>
+                    </div>
+                    <div className={styles.statItem}>
+                      <small>OPTIMAL</small>
+                      <strong>{team.optimal}</strong>
+                    </div>
+                    <div className={styles.statItem}>
+                      <small>MISSED</small>
+                      <strong>{team.missedPoints}</strong>
                     </div>
                   </div>
                 )}

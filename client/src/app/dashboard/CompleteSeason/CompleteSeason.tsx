@@ -10,6 +10,7 @@ import LineupEfficiency from "./LineupEfficiency";
 export interface PowerRankingsData {
   rosterId: number;
   owner: string;
+  teamName: string;
   totalPoints: number;
   playoffPoints: number;
   wins: number;
@@ -27,6 +28,7 @@ export interface PowerRankingsData {
 export interface LuckItem {
   rosterId: string | number;
   owner: string; // added owner
+  teamName: string;
   actualWins: number;
   expectedWins: number;
   luck: number;
@@ -34,7 +36,8 @@ export interface LuckItem {
 
 export interface LineupEfficiencyItem {
   rosterId: string | number;
-  owner?: string;
+  owner: string;
+  teamName: string;
   actual: number;
   optimal: number;
   missedPoints: number;
@@ -60,9 +63,7 @@ const CompleteSeason: React.FC<CompleteSeasonProps> = ({ seasonData }) => {
         finalPowerRankings={seasonData?.finalPowerRankings || []}
       />
       <LuckIndex luckIndex={seasonData?.luckIndex || []} />
-      <LineupEfficiency
-        lineupEfficiency={seasonData?.lineupEfficiency || []}
-      />
+      <LineupEfficiency lineupEfficiency={seasonData?.lineupEfficiency || []} />
     </div>
   );
 };

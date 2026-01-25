@@ -106,6 +106,7 @@ const computeTeamProjections = (
 
 const computeFinalPowerRankings = (
   rosters,
+  users,
   matchupsByWeek,
   weekSettings,
   winnersBracket = [],
@@ -120,9 +121,13 @@ const computeFinalPowerRankings = (
   // INIT TEAMS
   // -----------------------------
   rosters.forEach((r) => {
+    // Find the user object that matches the owner
+    const user = users.find((u) => u.display_name === r.owner?.display_name);
+
     teams[r.rosterId] = {
       rosterId: r.rosterId,
       owner: r.owner?.display_name || "Unknown",
+      teamName: user?.metadata?.team_name || "Unknown", // get from users array
       points: 0,
       wins: 0,
       expectedWins: 0,
@@ -263,7 +268,7 @@ const computeFinalPowerRankings = (
   return ranked;
 };
 
-const computeLuckIndex = (rosters, matchupsByWeek) => {
+const computeLuckIndex = (rosters, users, matchupsByWeek) => {
   const teamStats = {};
 
   Object.entries(matchupsByWeek).forEach(([, weekMatchups]) => {
@@ -282,11 +287,16 @@ const computeLuckIndex = (rosters, matchupsByWeek) => {
 
   return Object.entries(teamStats).map(([rosterId, stats]) => {
     const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
+
+    // Find the user in the users array by display_name
+    const user = users.find(
+      (u) => u.display_name === ownerObj?.owner?.display_name,
+    );
+
     return {
       rosterId,
-      owner: ownerObj?.owner?.display_name
-        ? ownerObj?.owner?.display_name
-        : "Unknown",
+      owner: ownerObj?.owner?.display_name || "Unknown",
+      teamName: user?.metadata?.team_name || "Unknown", // <-- get from users array
       actualWins: stats.actualWins,
       expectedWins: stats.expectedWins,
       luck: Number((stats.actualWins - stats.expectedWins).toFixed(2)),
@@ -297,6 +307,7 @@ const computeLuckIndex = (rosters, matchupsByWeek) => {
 const computeLineupEfficiency = async (
   matchupsByWeek,
   rosters,
+  users,
   scoringSettings,
   rosterPositions,
   seasonYear,
@@ -466,11 +477,17 @@ const computeLineupEfficiency = async (
 
       const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
 
+      // Find the user in the users array by display_name
+      const user = users.find(
+        (u) => u.display_name === ownerObj?.owner?.display_name,
+      );
+
       return {
         rosterId,
         owner: ownerObj?.owner?.display_name
           ? ownerObj?.owner?.display_name
           : "Unknown",
+        teamName: user?.metadata?.team_name || "Unknown", // <-- get from users array
         actual,
         optimal,
         missedPoints,

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import styles from "../../../styles/PowerRankings.module.css";
+import styles from "../../../styles/Dashboard.module.css";
 import { PowerRankingsData } from "./CompleteSeason";
 import PowerRankingsTooltip from "@/app/components/PowerRankingsTooltip";
 
@@ -25,7 +25,7 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
     },
     {
       label: "Playoff Points",
-      description: "Points scored during playoffs only.",
+      description: "Points scored during playoffs only including (Winners & Losers brackets), and consolation matches.",
     },
     {
       label: "Wins",
@@ -76,6 +76,10 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
   return (
     <div className={styles.container}>
       <h2 className={styles.title}>Fantasy League Power Rankings</h2>
+      <p className={styles.subtitle}>
+        Includes regular season, playoffs (Winners & Losers brackets), and
+        consolation matches.
+      </p>
       <div className={styles.cards}>
         <PowerRankingsTooltip stats={statsDescriptions} />
         {finalPowerRankings

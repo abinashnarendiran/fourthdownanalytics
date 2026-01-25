@@ -1,6 +1,6 @@
 // components/LuckIndex.tsx
 import React, { useState } from "react";
-import styles from "../../../styles/PowerRankings.module.css"; // reuse your card styles
+import styles from "../../../styles/Dashboard.module.css";
 import { LuckItem } from "./CompleteSeason";
 
 export interface LuckIndexProps {
@@ -9,55 +9,67 @@ export interface LuckIndexProps {
 
 const LuckIndex: React.FC<LuckIndexProps> = ({ luckIndex }) => {
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
-
-  const toggleRow = (rosterId: string | number) => {
+  const toggleRow = (id: string | number) =>
     setExpandedRows((prev) =>
-      prev.includes(rosterId.toString())
-        ? prev.filter((id) => id !== rosterId.toString())
-        : [...prev, rosterId.toString()]
+      prev.includes(id.toString())
+        ? prev.filter((i) => i !== id.toString())
+        : [...prev, id.toString()],
     );
-  };
 
   return (
     <div className={styles.container}>
       <h2 className={styles.title}>Luck Index</h2>
+      <p className={styles.subtitle}>
+        Includes regular season, playoffs (Winners & Losers brackets), and
+        consolation matches.
+      </p>
       <div className={styles.cards}>
         {luckIndex
-          .sort((a, b) => b.luck - a.luck) // optional: sort by luck descending
-          .map((team) => {
+          .sort((a, b) => b.luck - a.luck)
+          .map((team, index) => {
             const isExpanded = expandedRows.includes(team.rosterId.toString());
-            const luckColor = team.luck >= 0 ? "green" : "red";
+            const badgeClass =
+              team.luck >= 0 ? styles.luckBadgePos : styles.luckBadgeNeg;
 
             return (
-              <div key={team.rosterId} className={styles.card}>
-                {/* Top row: Owner, Team, Luck */}
+              <div
+                key={team.rosterId}
+                className={`${styles.card} ${index === 0 ? styles.first : index === 1 ? styles.second : index === 2 ? styles.third : ""}`}>
                 <div
                   className={styles.topRow}
-                  onClick={() => toggleRow(team.rosterId)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <div className={styles.ownerColumn}>
-                    <div className={styles.owner}>{team.owner}</div>
-                    <div style={{ color: luckColor, fontWeight: 600 }}>
-                      Luck Index: {team.luck > 0 ? `+${team.luck}` : team.luck}
+                  onClick={() => toggleRow(team.rosterId)}>
+                  <div className={styles.leftSection}>
+                    <span className={styles.rank}>#{index + 1}</span>
+                    <div className={styles.ownerColumn}>
+                      <div className={styles.owner}>{team.owner}</div>
+                      <div className={styles.teamName}>
+                        {team.teamName || "No Team Name"}
+                      </div>
                     </div>
                   </div>
-                  <div
-                    className={`${styles.arrow} ${
-                      isExpanded ? styles.arrowExpanded : ""
-                    }`}
-                  >
-                    ▼
+                  <div className={styles.rightSection}>
+                    <div className={`${styles.badge} ${badgeClass}`}>
+                      {team.luck > 0 ? `+${team.luck}` : team.luck} Luck
+                    </div>
+                    <div
+                      className={`${styles.arrow} ${isExpanded ? styles.arrowExpanded : ""}`}>
+                      ▼
+                    </div>
                   </div>
                 </div>
-
-                {/* Expanded stats */}
                 {isExpanded && (
                   <div className={styles.expandedStats}>
-                    <div className={styles.statColumn}>
-                      <div>Actual Wins: {team.actualWins}</div>
-                      <div>Expected Wins: {team.expectedWins}</div>
-                      <div>Luck: {team.luck > 0 ? `+${team.luck}` : team.luck}</div>
+                    <div className={styles.statItem}>
+                      <small>ACTUAL</small>
+                      <strong>{team.actualWins}W</strong>
+                    </div>
+                    <div className={styles.statItem}>
+                      <small>EXPECTED</small>
+                      <strong>{team.expectedWins.toFixed(1)}W</strong>
+                    </div>
+                    <div className={styles.statItem}>
+                      <small>LUCK</small>
+                      <strong>{team.luck}</strong>
                     </div>
                   </div>
                 )}

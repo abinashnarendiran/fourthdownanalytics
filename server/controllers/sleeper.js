@@ -177,16 +177,18 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
       const losersBracket = await getPlayoffsLosersBracket(leagueId);
       const finalPowerRankings = computeFinalPowerRankings(
         rosters,
+        users,
         matchupsByWeek,
         weekSettings,
         winnersBracket,
         losersBracket,
       );
-      const luckIndex = await computeLuckIndex(rosters, matchupsByWeek);
+      const luckIndex = await computeLuckIndex(rosters, users, matchupsByWeek);
 
       const lineupEfficiency = await computeLineupEfficiency(
         matchupsByWeek,
         rosters,
+        users,
         sleeperData.scoring_settings,
         rosterPositions,
         seasonYear,

@@ -1,0 +1,225 @@
+/* Container and page layout */
+.container {
+  padding: 1.5rem; /* Slightly reduced padding */
+  max-width: 1000px; /* Tighter container for dashboard feel */
+  margin: 0 auto;
+  font-family: var(--font-sans, Arial, sans-serif);
+}
+
+.title {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+  color: var(--foreground);
+}
+
+/* Card grid */
+.cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem; /* Tighter gap */
+}
+
+.card {
+  background: var(--background, #fff);
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Top row: Horizontal Layout */
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 0.6rem 1rem;
+}
+
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rank {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #a0aec0;
+  min-width: 25px;
+}
+
+.ownerColumn {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.owner {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.teamName {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Right Section: Badges and Arrows */
+.rightSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Generic Pill Badge Style */
+.badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 60px;
+  text-align: center;
+  border: 1px solid transparent;
+}
+
+.luckBadgePos {
+  background: rgba(46, 125, 50, 0.1);
+  color: #2e7d32;
+  border-color: rgba(46, 125, 50, 0.2);
+}
+.luckBadgeNeg {
+  background: rgba(211, 47, 47, 0.1);
+  color: #d32f2f;
+  border-color: rgba(211, 47, 47, 0.2);
+}
+.badgeWarn {
+  background: rgba(255, 165, 0, 0.1);
+  color: #cc8400;
+  border-color: rgba(255, 165, 0, 0.2);
+}
+.badgePower {
+  background: rgba(31, 106, 225, 0.1);
+  color: #1f6ae1;
+  border-color: rgba(31, 106, 225, 0.2);
+}
+
+.arrow {
+  transition: transform 0.3s;
+  font-size: 0.7rem;
+  opacity: 0.5;
+}
+
+.arrowExpanded {
+  transform: rotate(180deg);
+}
+
+/* Expanded stats: Horizontal Grid */
+.expandedStats {
+  display: flex;
+  justify-content: space-around;
+  padding: 0.8rem 1rem;
+  background: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid var(--border, rgba(0, 0, 0, 0.05));
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.statItem small {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  color: #718096;
+  margin-bottom: 2px;
+}
+
+.statItem strong {
+  font-size: 0.85rem;
+}
+
+/* Podium Gradients */
+.first {
+  background: linear-gradient(90deg, #fffcf0 0%, #fff 100%);
+  border-left: 4px solid #ffd700;
+}
+.second {
+  background: linear-gradient(90deg, #f7f7f7 0%, #fff 100%);
+  border-left: 4px solid #c0c0c0;
+}
+.third {
+  background: linear-gradient(90deg, #fcf6f0 0%, #fff 100%);
+  border-left: 4px solid #cd7f32;
+}
+
+/* Container for Rank and Names */
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Container for Badge and Arrow */
+.rightSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Specific Badge for Power Rankings */
+.badgePower {
+  background: rgba(31, 106, 225, 0.1);
+  color: #1f6ae1;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid rgba(31, 106, 225, 0.2);
+}
+
+/* Team Name Subtext */
+.teamName {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  font-weight: 500;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+/* Horizontal Stat Items inside Expanded area */
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 25%; /* Allows 4 items per row on large screens */
+  min-width: 80px;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #718096; /* A softer gray */
+  margin-top: -1.5rem; /* Pull it closer to the title */
+  margin-bottom: 2rem;
+  font-style: italic;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
