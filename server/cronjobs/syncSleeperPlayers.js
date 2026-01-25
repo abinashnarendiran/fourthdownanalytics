@@ -4,8 +4,6 @@ const { getSleeperPlayers } = require("../services/sleeper");
 
 const syncSleeperPlayers = async () => {
   try {
-    console.log("🔄 Syncing Sleeper players...");
-
     const sleeperPlayers = await getSleeperPlayers();
     if (!sleeperPlayers) throw new Error("No player data received");
 
@@ -64,14 +62,11 @@ const syncSleeperPlayers = async () => {
 // Optional scheduler
 function scheduleSyncSleperPlayers() {
   return cron.schedule("0 4 * * *", async () => {
-    console.log("⏰ Cron Job: Starting daily Sleeper player sync...");
     await syncSleeperPlayers();
-    console.log("✅ Cron Job: Completed");
   });
 }
 
 // Export both
 module.exports = {
-  syncSleeperPlayers,
   scheduleSyncSleperPlayers,
 };

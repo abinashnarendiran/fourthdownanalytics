@@ -83,7 +83,6 @@ export const Dashboard = () => {
 
     if (!errorStatus) {
       const x = await getSleeperCompleteSeasonData(id);
-      console.log(x[1]);
       if (x[0] === null) {
         setSeasonData(x[1]);
         setError(false);
