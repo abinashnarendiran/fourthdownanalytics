@@ -5,12 +5,12 @@ const {
   getSleeperRosters,
   getSleeperUsers,
   getSleeperWeeklyMatchups,
-  getSleeperPlayerRegularSeasonStats,
   getPreseasonProjections,
   getAllMatchups,
   getPlayoffsWinnersBracket,
   getPlayoffsLosersBracket,
 } = require("../services/sleeper"); // adjust path
+
 const {
   computeLeagueAverages,
   computeTeamProjections,
@@ -135,7 +135,6 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
     const sleeperStatus = sleeperData.status || "pre_draft";
 
     let matchups = [];
-    let playerStats = [];
 
     if (sleeperStatus === "pre_draft") {
       const projectedPlayers = await getPreseasonProjections(
@@ -216,13 +215,6 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
     }
     matchups = await Promise.all(matchupsPromises);
 
-    // Fetch stats for all roster players
-    const playerIds = [...new Set(rosters.flatMap((r) => r.players))];
-    const playerStatsPromises = playerIds.map((pid) =>
-      getSleeperPlayerRegularSeasonStats(pid, seasonYear),
-    );
-    playerStats = await Promise.all(playerStatsPromises);
-
     // Return structured data
     return res.status(200).json({
       status: sleeperStatus,
@@ -230,7 +222,6 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
       rosters,
       users,
       matchups,
-      playerStats,
     });
   } catch (error) {
     console.error("Error fetching Sleeper season data:", error);

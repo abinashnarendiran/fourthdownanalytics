@@ -1,13 +1,10 @@
 const {
-  getSleeperPlayerProjectedRegularSeasonStats,
-  getSleeperPlayerRegularSeasonStats,
-} = require("../services/sleeperStats");
+  PlayerWeekProjections,
+  PlayerWeekStats,
+  Players,
+} = require("../models");
 const { getLineupSlots, getLeagueWeeks } = require("./rosterUtils");
-const {
-  sumTop,
-  getStatsForWeek,
-  calculateFantasyPoints,
-} = require("./statsUtiil");
+const { sumTop, calculateFantasyPoints } = require("./statsUtiil");
 
 const computeLeagueAverages = (projectedPlayers) => {
   const totals = {};
@@ -145,8 +142,6 @@ const computeFinalPowerRankings = (
   Object.entries(matchupsByWeek).forEach(([week, matchups]) => {
     // Only process weeks up to regularSeasonWeeks
     if (Number(week) > regularSeasonWeeks) return;
-    console.log(week);
-    console.log(matchups);
 
     const scores = matchups.map((m) => m.points);
     if (!scores.length) return;
@@ -314,36 +309,57 @@ const computeLineupEfficiency = async (
   const slots = getLineupSlots(rosterPositions);
 
   // Caches
-  const statsCache = {};
-  const projectionCache = {};
 
   const getActualPoints = async (playerId, week) => {
     if (!playerId) return 0;
-    if (!statsCache[playerId]) {
-      statsCache[playerId] = await getSleeperPlayerRegularSeasonStats(
-        playerId,
-        seasonYear,
-        "week",
-      );
-    }
-    const stats = await statsCache[playerId];
-    const weekStats = getStatsForWeek(stats, week);
-    return weekStats ? calculateFantasyPoints(weekStats, scoringSettings) : 0;
+
+    const projection = await PlayerWeekStats.findOne({
+      where: {
+        week,
+        season: seasonYear,
+        source: "sleeper",
+      },
+      include: [
+        {
+          model: Players,
+          where: {
+            sleeperPlayerId: playerId,
+          },
+          required: true,
+        },
+      ],
+      nest: true, // this is correct outside include
+    });
+
+    if (!projection) return 0;
+
+    return calculateFantasyPoints(projection.stats, scoringSettings);
   };
 
   const getProjectedPoints = async (playerId, week) => {
     if (!playerId) return 0;
-    if (!projectionCache[playerId]) {
-      projectionCache[playerId] =
-        await getSleeperPlayerProjectedRegularSeasonStats(
-          playerId,
-          seasonYear,
-          "week",
-        );
-    }
-    const stats = await projectionCache[playerId];
-    const weekStats = getStatsForWeek(stats, week);
-    return weekStats ? calculateFantasyPoints(weekStats, scoringSettings) : 0;
+
+    const projection = await PlayerWeekProjections.findOne({
+      where: {
+        week,
+        season: seasonYear,
+        source: "sleeper",
+      },
+      include: [
+        {
+          model: Players,
+          where: {
+            sleeperPlayerId: playerId,
+          },
+          required: true,
+        },
+      ],
+      nest: true, // this goes outside of `include`
+    });
+
+    if (!projection) return 0;
+
+    return calculateFantasyPoints(projection.projections, scoringSettings);
   };
 
   await Promise.all(
@@ -409,7 +425,19 @@ const computeLineupEfficiency = async (
 
               if (!playerId) return;
 
-              const slotOrder = ["QB", "RB", "WR", "TE", "FLEX", "DST", "K"];
+              const slotOrder = [
+                "QB",
+                "RB",
+                "WR",
+                "TE",
+                "FLEX",
+                "DL",
+                "LB",
+                "DB",
+                "IDP_FLEX",
+                "K",
+                "DEF",
+              ];
               const slot = slotOrder.find((s) => slotsFilled[s] > 0);
 
               if (!slot) return;
@@ -426,8 +454,6 @@ const computeLineupEfficiency = async (
       );
     }),
   );
-
-  console.log("efficiencyMap", efficiencyMap);
 
   // -------- FINAL OUTPUT --------
   const totalEfficiency = Object.entries(efficiencyMap)
