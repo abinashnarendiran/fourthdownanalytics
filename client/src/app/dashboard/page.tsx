@@ -82,11 +82,13 @@ export const Dashboard = () => {
     }
 
     if (!errorStatus) {
-      const x = await getSleeperCompleteSeasonData(id);
-      if (x[0] === null) {
-        setSeasonData(x[1]);
+      const data = await getSleeperCompleteSeasonData(id);
+      if (data[0] === null) {
+        console.log(data[1])
+        setSeasonData(data[1]);
         setError(false);
       } else {
+        setError(true);
       }
     }
     // API call here...

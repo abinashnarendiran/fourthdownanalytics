@@ -17,6 +17,7 @@ const {
   computeFinalPowerRankings,
   computeLuckIndex,
   computeLineupEfficiency,
+  computeKeyPlayers,
 } = require("../util/metricsUtil");
 const {
   enrichRosters,
@@ -183,16 +184,25 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
         winnersBracket,
         losersBracket,
       );
-      const luckIndex = await computeLuckIndex(rosters, users, matchupsByWeek);
+      const luckIndex = computeLuckIndex(rosters, users, matchupsByWeek);
 
       const lineupEfficiency = await computeLineupEfficiency(
         matchupsByWeek,
         rosters,
         users,
-        sleeperData.scoring_settings,
+        scoringSettings,
         rosterPositions,
         seasonYear,
         true,
+      );
+
+      const keyPlayers = await computeKeyPlayers(
+        matchupsByWeek,
+        rosters,
+        users,
+        scoringSettings,
+        seasonYear,
+        weekSettings,
       );
 
       return res.status(200).json({
@@ -203,6 +213,7 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
         lineupEfficiency,
         users,
         rosters,
+        keyPlayers,
       });
     }
     // IN SEASON or COMPLETE: fetch matchups & player stats

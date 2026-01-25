@@ -2,6 +2,7 @@ import React from "react";
 import PowerRankings from "./PowerRankings";
 import LuckIndex from "./LuckIndex";
 import LineupEfficiency from "./LineupEfficiency";
+import KeyPlayers from "./KeyPlayers";
 
 // Optional: import future components
 // import WinsVsExpected from "./wins-vs-expected/WinsVsExpected";
@@ -44,10 +45,30 @@ export interface LineupEfficiencyItem {
   efficiency: number; // float 0-1
 }
 
+export interface PlayerStats {
+  rank: number;
+  fullName: string;
+  totalPoints: string;
+  weeksPlayed: number;
+  wins: number;
+  contributionPct: string;
+}
+
+export interface KeyPlayersItem {
+  rosterId: string;
+  owner: string;
+  teamName: string;
+  keyPlayers: {
+    regularSeason: PlayerStats[];
+    playoffs: PlayerStats[];
+  };
+}
+
 export interface SeasonData {
   finalPowerRankings: PowerRankingsData[];
   luckIndex: LuckItem[];
   lineupEfficiency: LineupEfficiencyItem[];
+  keyPlayers: KeyPlayersItem[];
   // You can add other season objects later, e.g.,
   // standings?: TeamData[];
   // matchups?: MatchupData[];
@@ -64,6 +85,7 @@ const CompleteSeason: React.FC<CompleteSeasonProps> = ({ seasonData }) => {
       />
       <LuckIndex luckIndex={seasonData?.luckIndex || []} />
       <LineupEfficiency lineupEfficiency={seasonData?.lineupEfficiency || []} />
+      <KeyPlayers keyPlayers={seasonData?.keyPlayers || []} />
     </div>
   );
 };

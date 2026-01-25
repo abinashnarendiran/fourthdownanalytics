@@ -127,7 +127,9 @@ const computeFinalPowerRankings = (
     teams[r.rosterId] = {
       rosterId: r.rosterId,
       owner: r.owner?.display_name || "Unknown",
-      teamName: user?.metadata?.team_name || "Unknown", // get from users array
+      teamName:
+        user?.metadata?.team_name ||
+        (r?.owner?.display_name ? `Team ${r.owner.display_name}` : "Unknown"),
       points: 0,
       wins: 0,
       expectedWins: 0,
@@ -296,7 +298,11 @@ const computeLuckIndex = (rosters, users, matchupsByWeek) => {
     return {
       rosterId,
       owner: ownerObj?.owner?.display_name || "Unknown",
-      teamName: user?.metadata?.team_name || "Unknown", // <-- get from users array
+      teamName:
+        user?.metadata?.team_name ||
+        (ownerObj?.owner?.display_name
+          ? `Team ${ownerObj?.owner?.display_name}`
+          : "Unknown"),
       actualWins: stats.actualWins,
       expectedWins: stats.expectedWins,
       luck: Number((stats.actualWins - stats.expectedWins).toFixed(2)),
@@ -487,7 +493,11 @@ const computeLineupEfficiency = async (
         owner: ownerObj?.owner?.display_name
           ? ownerObj?.owner?.display_name
           : "Unknown",
-        teamName: user?.metadata?.team_name || "Unknown", // <-- get from users array
+        teamName:
+          user?.metadata?.team_name ||
+          (ownerObj?.owner?.display_name
+            ? `Team ${ownerObj?.owner?.display_name}`
+            : "Unknown"),
         actual,
         optimal,
         missedPoints,
@@ -505,9 +515,18 @@ const computeLineupEfficiency = async (
           (r) => r.rosterId.toString() === rosterId,
         );
 
+        const user = users.find(
+          (u) => u.display_name === ownerObj?.owner?.display_name,
+        );
+
         return {
           rosterId,
           owner: ownerObj?.owner?.display_name ?? "Unknown",
+          teamName:
+            user?.metadata?.team_name ||
+            (ownerObj?.owner?.display_name
+              ? `Team ${ownerObj?.owner?.display_name}`
+              : "Unknown"),
           weeks: Object.entries(weeks).map(([week, v]) => {
             const actual = Number(v.actual.toFixed(2));
             const optimal = Number(v.optimal.toFixed(2));
@@ -531,6 +550,154 @@ const computeLineupEfficiency = async (
   return dashboard ? totalEfficiency : { totalEfficiency, weeklyEfficiency };
 };
 
+const computeKeyPlayers = async (
+  matchupsByWeek,
+  rosters,
+  users,
+  scoringSettings,
+  seasonYear,
+  weekSettings,
+) => {
+  const playerStatsByRoster = {};
+  const teamTotalPoints = {};
+  const teamPlayoffPoints = {};
+
+  const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
+
+  const getActualPoints = async (playerId, week) => {
+    if (!playerId) return { points: 0, fullName: "Unknown" };
+    const projection = await PlayerWeekStats.findOne({
+      where: { week, season: seasonYear, source: "sleeper" },
+      include: [
+        {
+          model: Players,
+          where: { sleeperPlayerId: playerId },
+          required: true,
+        },
+      ],
+      nest: true,
+    });
+    if (!projection) return { points: 0, fullName: "Unknown" };
+    return {
+      points: calculateFantasyPoints(projection.stats, scoringSettings),
+      fullName: projection.Player?.fullName || "Unknown",
+    };
+  };
+
+  const processWeeks = async (filterFn, seasonType) => {
+    await Promise.all(
+      Object.entries(matchupsByWeek)
+        .filter(([week]) => filterFn(Number(week)))
+        .map(async ([weekStr, matchups]) => {
+          const week = Number(weekStr);
+          await Promise.all(
+            matchups.map(async (team) => {
+              const { rosterId } = team;
+              if (!playerStatsByRoster[rosterId])
+                playerStatsByRoster[rosterId] = {};
+              const teamPointsMap =
+                seasonType === "regular" ? teamTotalPoints : teamPlayoffPoints;
+              if (!teamPointsMap[rosterId]) teamPointsMap[rosterId] = 0;
+
+              await Promise.all(
+                (team.starters || []).map(async (starter) => {
+                  let playerId;
+                  if (typeof starter === "string") playerId = starter;
+                  else if (starter?.pid) playerId = starter.pid;
+                  else {
+                    const key = Object.keys(starter || {}).find((k) =>
+                      k.startsWith("TEAM_"),
+                    );
+                    playerId = key ? starter[key] : null;
+                  }
+                  if (!playerId) return;
+
+                  const { points, fullName } = await getActualPoints(
+                    playerId,
+                    week,
+                  );
+
+                  if (!playerStatsByRoster[rosterId][playerId]) {
+                    playerStatsByRoster[rosterId][playerId] = {
+                      regular: {
+                        totalPoints: 0,
+                        weeksPlayed: 0,
+                        wins: 0,
+                        fullName,
+                      },
+                      playoffs: {
+                        totalPoints: 0,
+                        weeksPlayed: 0,
+                        wins: 0,
+                        fullName,
+                      },
+                    };
+                  }
+
+                  const stats =
+                    playerStatsByRoster[rosterId][playerId][seasonType];
+                  stats.totalPoints += points;
+                  stats.weeksPlayed += 1;
+                  if (team.points > team.opponent_points) stats.wins += 1;
+
+                  teamPointsMap[rosterId] += points;
+                }),
+              );
+            }),
+          );
+        }),
+    );
+  };
+
+  // Process both regular season and playoffs
+  await processWeeks((week) => week <= regularSeasonWeeks, "regular");
+  await processWeeks((week) => week > regularSeasonWeeks, "playoffs");
+
+  // Build final dashboard array
+  return Object.entries(playerStatsByRoster).map(([rosterId, players]) => {
+    const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
+    const user = users.find(
+      (u) => u.display_name === ownerObj?.owner?.display_name,
+    );
+
+    const buildTop5 = (seasonType) => {
+      const teamPoints =
+        seasonType === "regular"
+          ? teamTotalPoints[rosterId]
+          : teamPlayoffPoints[rosterId];
+      return Object.values(players)
+        .map((p) => p[seasonType])
+        .sort((a, b) => b.totalPoints - a.totalPoints)
+        .slice(0, 5)
+        .map((p, idx) => ({
+          rank: idx + 1,
+          fullName: p.fullName,
+          totalPoints: p.totalPoints.toFixed(2),
+          weeksPlayed: p.weeksPlayed,
+          wins: p.wins,
+          contributionPct:
+            teamPoints > 0
+              ? ((p.totalPoints / teamPoints) * 100).toFixed(2)
+              : "0",
+        }));
+    };
+
+    return {
+      rosterId,
+      owner: ownerObj?.owner?.display_name || "Unknown",
+      teamName:
+        user?.metadata?.team_name ||
+        (ownerObj?.owner?.display_name
+          ? `Team ${ownerObj.owner.display_name}`
+          : "Unknown"),
+      keyPlayers: {
+        regularSeason: buildTop5("regular"),
+        playoffs: buildTop5("playoffs"),
+      },
+    };
+  });
+};
+
 module.exports = {
   computeLeagueAverages,
   computeTeamProjections,
@@ -538,4 +705,5 @@ module.exports = {
   computeLuckIndex,
   computeLineupEfficiency,
   calculateFantasyPoints,
+  computeKeyPlayers,
 };

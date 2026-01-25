@@ -223,3 +223,83 @@
   margin-left: auto;
   margin-right: auto;
 }
+
+/* MVP Highlight in the top row */
+.mvpHighlight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 10px;
+}
+
+.mvpHighlight small {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #d69e2e; /* Gold color */
+  letter-spacing: 0.05rem;
+}
+
+.mvpHighlight span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* Expanded Key Players Layout */
+.keyPlayersExpanded {
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.seasonSection h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #718096;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+/* Mini Table Styling */
+.playerTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.playerTable th {
+  color: #a0aec0;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  text-transform: uppercase;
+  font-size: 0.7rem;
+}
+
+.playerTable td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  color: var(--foreground);
+}
+
+.playerTable tr:last-child td {
+  border-bottom: none;
+}
+
+.colPlayer {
+  width: 40%;
+  text-align: left;
+}
+.colPoints {
+  width: 20%;
+  text-align: right;
+}
+.colPct {
+  width: 20%;
+  text-align: right;
+}
+.colWins {
+  width: 20%;
+  text-align: right;
+}

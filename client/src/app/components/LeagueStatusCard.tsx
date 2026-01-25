@@ -56,7 +56,7 @@ export const LeagueStatusCard: React.FC<LeagueStatusCardProps> = ({
         </p>
 
         <p>
-          <span className="label">Season Finished:</span>{" "}
+          <span className="label">Full NFL Season and Playoffs Finished:</span>{" "}
           {leagueMetaData.isSeasonFinished ? "Yes" : "No"}
         </p>
       </div>
