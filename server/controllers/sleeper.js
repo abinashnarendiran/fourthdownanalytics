@@ -100,7 +100,8 @@ module.exports.getSleeperSeasonData = async (req, res) => {
         .json({ message: "League not found in your system" });
     }
 
-    const { leagueId, seasonYear, config, FantasyPlatform } = leagueRecord;
+    const { leagueId, seasonYear, config, FantasyPlatform, type } =
+      leagueRecord;
 
     const {
       scoringSettings,
@@ -139,6 +140,7 @@ module.exports.getSleeperSeasonData = async (req, res) => {
         rosters,
         users,
         config,
+        leagueType: type,
         rosterPositions,
         seasonYear,
       });
@@ -156,6 +158,7 @@ module.exports.getSleeperSeasonData = async (req, res) => {
         league: leagueData,
       });
     }
+
     if (sleeperStatus === "complete") {
       // For COMPLETE season, set week to total scoring weeks
       // so that front-end can fetch all matchups
@@ -182,26 +185,6 @@ module.exports.getSleeperSeasonData = async (req, res) => {
         league: completeSeasonData,
       });
     }
-    // IN SEASON or COMPLETE: fetch matchups & player stats
-    /* const matchupsPromises = [];
-    for (let w = 1; w <= totalScoringWeeks; w += 1) {
-      matchupsPromises.push(
-        getSleeperWeeklyMatchups(leagueId, w).then((data) => ({
-          week: w,
-          data,
-        })),
-      );
-    }
-    matchups = await Promise.all(matchupsPromises);
-
-    // Return structured data
-    return res.status(200).json({
-      status: sleeperStatus,
-      league: sleeperData,
-      rosters,
-      users,
-      matchups,
-    }); */
 
     return true;
   } catch (e) {
