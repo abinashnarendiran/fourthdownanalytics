@@ -19,8 +19,8 @@ const KeyPlayers: React.FC<KeyPlayersProps> = ({ keyPlayers }) => {
     <div className={styles.container}>
       <h2 className={styles.title}>Key Contributors</h2>
       <p className={styles.subtitle}>
-        The top 5 players who carried each team based on total points scored
-        while in the starting lineup.
+        Top-performing players per team: ranked by total points, showing their
+        contribution to wins, efficiency, and lineup decisions.
       </p>
 
       <div className={styles.cards}>

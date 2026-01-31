@@ -1,29 +1,16 @@
-const { Leagues } = require("../models");
+const { Leagues, FantasyPlatforms } = require("../models");
 const {
   getSleeperByLeagueId,
   getNFLState,
   getSleeperRosters,
   getSleeperUsers,
-  getSleeperWeeklyMatchups,
-  getPreseasonProjections,
-  getAllMatchups,
-  getPlayoffsWinnersBracket,
-  getPlayoffsLosersBracket,
 } = require("../services/sleeper"); // adjust path
+const {
+  completeSeason,
+  preDraftSeason,
+} = require("../util/getDatabySeasonStatus");
 
-const {
-  computeLeagueAverages,
-  computeTeamProjections,
-  computeFinalPowerRankings,
-  computeLuckIndex,
-  computeLineupEfficiency,
-  computeKeyPlayers,
-} = require("../util/metricsUtil");
-const {
-  enrichRosters,
-  attachUsersToRosters,
-  getLeagueWeeks,
-} = require("../util/rosterUtils");
+const { enrichRosters, attachUsersToRosters } = require("../util/rosterUtils");
 
 module.exports.getSleeperLeagueStatus = async (req, res) => {
   try {
@@ -82,27 +69,38 @@ module.exports.getSleeperLeagueStatus = async (req, res) => {
       seasonFinished,
     });
   } catch (error) {
-    console.error("Error fetching Sleeper league status:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({ message: "Error getting league status" });
   }
 };
 
-module.exports.getSleeperCompleteSeasonData = async (req, res) => {
+module.exports.getSleeperSeasonData = async (req, res) => {
   try {
+    const { userId } = req.user;
     const { id } = req.body; // expecting { id } of the league record
     if (!id) {
       return res.status(400).json({ message: "id is required" });
     }
 
     // Find league in your DB
-    const leagueRecord = await Leagues.findOne({ where: { id } });
+    const leagueRecord = await Leagues.findOne({
+      where: { id },
+      include: [
+        {
+          model: FantasyPlatforms,
+          required: true,
+          where: { userId },
+        },
+      ],
+      nest: true,
+    });
+
     if (!leagueRecord) {
       return res
         .status(404)
         .json({ message: "League not found in your system" });
     }
 
-    const { leagueId, seasonYear, config } = leagueRecord;
+    const { leagueId, seasonYear, config, FantasyPlatform } = leagueRecord;
 
     const {
       scoringSettings,
@@ -130,94 +128,62 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
 
     const weekSettings = { playoffRoundType, playoffWeekStart, playoffTeams };
 
-    const { totalScoringWeeks } = getLeagueWeeks(weekSettings);
-
     // Determine league status
     const sleeperStatus = sleeperData.status || "pre_draft";
 
-    let matchups = [];
-
     if (sleeperStatus === "pre_draft") {
-      const projectedPlayers = await getPreseasonProjections(
-        seasonYear,
-        scoringSettings,
-      );
-
       // Map projections for O(1) lookup
-      const projectedPlayersMap = {};
-      projectedPlayers.forEach((p) => {
-        projectedPlayersMap[p.player_id] = p;
-      });
-
-      const leagueAverages = computeLeagueAverages(projectedPlayers);
-
-      const projectedPowerRankings = computeTeamProjections(
-        rosters,
-        projectedPlayersMap,
-        rosterPositions,
-      );
-
-      return res.status(200).json({
-        status: sleeperStatus,
-        league: sleeperData,
+      const preDraftSeasonData = await preDraftSeason({
+        leagueId,
+        displayName: FantasyPlatform.displayName,
         rosters,
         users,
-        preseason: {
-          leagueAverages,
-          projectedPowerRankings,
-        },
+        config,
+        rosterPositions,
+        seasonYear,
+      });
+
+      if (preDraftSeasonData === null) {
+        return res.status(500).json({
+          message:
+            "We couldn't load the pre draft season data right now. Please try again in a moment.",
+        });
+      }
+
+      const leagueData = preDraftSeasonData;
+      return res.status(200).json({
+        status: sleeperStatus,
+        league: leagueData,
       });
     }
     if (sleeperStatus === "complete") {
       // For COMPLETE season, set week to total scoring weeks
       // so that front-end can fetch all matchups
 
-      const matchupsByWeek = await getAllMatchups(leagueId, weekSettings);
-
-      const winnersBracket = await getPlayoffsWinnersBracket(leagueId);
-      const losersBracket = await getPlayoffsLosersBracket(leagueId);
-      const finalPowerRankings = computeFinalPowerRankings(
+      const completeSeasonData = await completeSeason({
+        leagueId,
         rosters,
         users,
-        matchupsByWeek,
         weekSettings,
-        winnersBracket,
-        losersBracket,
-      );
-      const luckIndex = computeLuckIndex(rosters, users, matchupsByWeek);
-
-      const lineupEfficiency = await computeLineupEfficiency(
-        matchupsByWeek,
-        rosters,
-        users,
         scoringSettings,
         rosterPositions,
         seasonYear,
-        true,
-      );
+      });
 
-      const keyPlayers = await computeKeyPlayers(
-        matchupsByWeek,
-        rosters,
-        users,
-        scoringSettings,
-        seasonYear,
-        weekSettings,
-      );
+      if (completeSeasonData === null) {
+        return res.status(500).json({
+          message:
+            "We couldn't load the complete season data right now.Please try again in a moment.",
+        });
+      }
 
       return res.status(200).json({
         status: sleeperStatus,
-        league: sleeperData,
-        finalPowerRankings,
-        luckIndex,
-        lineupEfficiency,
-        users,
-        rosters,
-        keyPlayers,
+        league: completeSeasonData,
       });
     }
     // IN SEASON or COMPLETE: fetch matchups & player stats
-    const matchupsPromises = [];
+    /* const matchupsPromises = [];
     for (let w = 1; w <= totalScoringWeeks; w += 1) {
       matchupsPromises.push(
         getSleeperWeeklyMatchups(leagueId, w).then((data) => ({
@@ -235,11 +201,13 @@ module.exports.getSleeperCompleteSeasonData = async (req, res) => {
       rosters,
       users,
       matchups,
+    }); */
+
+    return true;
+  } catch (e) {
+    return res.status(500).json({
+      message: "Error fetching Sleeper season data:",
+      error: e.message,
     });
-  } catch (error) {
-    console.error("Error fetching Sleeper season data:", error);
-    return res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
   }
 };

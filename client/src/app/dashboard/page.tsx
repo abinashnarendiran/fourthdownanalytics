@@ -5,17 +5,11 @@ import LeagueSelector from "../components/LeagueSelector";
 import { MainLayout } from "../components/MainLayout";
 import { Protected } from "../components/Protected";
 import { FantasyLeague } from "@/types/integration.types";
-import { get } from "http";
-import {
-  getSleeperCompleteSeasonData,
-  getSleeperLeagueStatus,
-} from "@/api/sleeper";
-import { set } from "zod";
-import { LEAGUE_STATUS_LABELS } from "@/constants/leagueStatusSleeper";
+import { getSleeperSeasonData, getSleeperLeagueStatus } from "@/api/sleeper";
 import { LeagueStatusCard } from "../components/LeagueStatusCard";
-import { fa } from "zod/locales";
 import CompleteSeason from "./CompleteSeason/CompleteSeason";
 import LoadingSpinner from "../components/LoadingSpinner";
+import PreDraft from "./PreDraftSeason/PreDraft";
 
 export const Dashboard = () => {
   const [leagues, setLeagues] = useState<FantasyLeague[]>([]);
@@ -24,7 +18,7 @@ export const Dashboard = () => {
   );
   const [dataFound, setDataFound] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
   const [leagueMetaData, setLeagueMetaData] = useState<any>(null);
   const [seasonData, setSeasonData] = useState<any>(null);
 
@@ -72,23 +66,26 @@ export const Dashboard = () => {
     let errorStatus = false;
     const sleeperStatus = await getSleeperLeagueStatus(id);
 
-    if (sleeperStatus[0]) {
+    if (sleeperStatus[0] !== null) {
       errorStatus = true;
-      setError(true);
+      setError(sleeperStatus[0].message);
       setLeagueMetaData(null);
     } else {
       setLeagueMetaData(sleeperStatus[1]);
+      setError("");
       errorStatus = false;
     }
 
     if (!errorStatus) {
-      const data = await getSleeperCompleteSeasonData(id);
+      const data = (await getSleeperSeasonData(id)) as [
+        { message: string } | null,
+        { league: any },
+      ];
       if (data[0] === null) {
-        console.log(data[1])
-        setSeasonData(data[1]);
-        setError(false);
+        setSeasonData(data[1].league);
+        setError("");
       } else {
-        setError(true);
+        setError(data[0].message);
       }
     }
     // API call here...
@@ -101,15 +98,35 @@ export const Dashboard = () => {
           selected={selectedLeague ?? undefined}
           onGetLeagues={handleGetLeagues}
           onSelect={handleSelectLeague}
+          disabled={loading}
         />
 
-        {loading && <LoadingSpinner />}
-
-        {!loading && leagueMetaData && seasonData && (
+        {loading ? (
+          <LoadingSpinner />
+        ) : error ? (
+          <div
+            role="alert"
+            style={{
+              background: "#fdecea",
+              color: "#611a15",
+              padding: "12px",
+              borderRadius: "6px",
+              marginTop: "12px",
+            }}>
+            {error}
+          </div>
+        ) : (
           <>
-            <LeagueStatusCard leagueMetaData={leagueMetaData} />
-            {leagueMetaData.leagueStatus === "complete" && (
-              <CompleteSeason seasonData={seasonData} />
+            {leagueMetaData && seasonData && (
+              <>
+                <LeagueStatusCard leagueMetaData={leagueMetaData} />
+                {leagueMetaData.leagueStatus === "complete" && (
+                  <CompleteSeason seasonData={seasonData} />
+                )}
+                {leagueMetaData.leagueStatus === "pre_draft" && (
+                  <PreDraft seasonData={seasonData} />
+                )}
+              </>
             )}
           </>
         )}

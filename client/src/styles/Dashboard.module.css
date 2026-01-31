@@ -1,4 +1,6 @@
-/* Container and page layout */
+/* ========================
+   Container & Page Layout
+======================== */
 .container {
   padding: 1.5rem; /* Slightly reduced padding */
   max-width: 1000px; /* Tighter container for dashboard feel */
@@ -14,7 +16,21 @@
   color: var(--foreground);
 }
 
-/* Card grid */
+.subtitle {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #718096; /* Softer gray */
+  margin-top: -1.5rem; 
+  margin-bottom: 2rem;
+  font-style: italic;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ========================
+   Card Grid Layout
+======================== */
 .cards {
   display: grid;
   grid-template-columns: 1fr;
@@ -25,12 +41,16 @@
   background: var(--background, #fff);
   border-radius: 10px;
   border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.card p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
 }
 
 .card:hover {
@@ -38,7 +58,9 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Top row: Horizontal Layout */
+/* ========================
+   Top Row Layout
+======================== */
 .topRow {
   display: flex;
   align-items: center;
@@ -47,10 +69,15 @@
   padding: 0.6rem 1rem;
 }
 
-.leftSection {
+.leftSection,
+.rightSection {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.leftSection {
+  gap: 15px;
 }
 
 .rank {
@@ -76,16 +103,12 @@
   opacity: 0.6;
   font-weight: 500;
   font-style: italic;
+  margin-top: 2px;
 }
 
-/* Right Section: Badges and Arrows */
-.rightSection {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* Generic Pill Badge Style */
+/* ========================
+   Badges & Arrows
+======================== */
 .badge {
   padding: 3px 10px;
   border-radius: 12px;
@@ -101,33 +124,43 @@
   color: #2e7d32;
   border-color: rgba(46, 125, 50, 0.2);
 }
+
 .luckBadgeNeg {
   background: rgba(211, 47, 47, 0.1);
   color: #d32f2f;
   border-color: rgba(211, 47, 47, 0.2);
 }
+
 .badgeWarn {
   background: rgba(255, 165, 0, 0.1);
   color: #cc8400;
   border-color: rgba(255, 165, 0, 0.2);
 }
+
 .badgePower {
   background: rgba(31, 106, 225, 0.1);
   color: #1f6ae1;
-  border-color: rgba(31, 106, 225, 0.2);
+  border: 1px solid rgba(31, 106, 225, 0.2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
 }
 
 .arrow {
   transition: transform 0.3s;
-  font-size: 0.7rem;
-  opacity: 0.5;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  cursor: pointer;
 }
 
 .arrowExpanded {
   transform: rotate(180deg);
 }
 
-/* Expanded stats: Horizontal Grid */
+/* ========================
+   Expanded Stats
+======================== */
 .expandedStats {
   display: flex;
   justify-content: space-around;
@@ -140,6 +173,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex: 1 1 25%; /* 4 items per row */
+  min-width: 80px;
+  margin-bottom: 10px;
 }
 
 .statItem small {
@@ -154,77 +190,7 @@
   font-size: 0.85rem;
 }
 
-/* Podium Gradients */
-.first {
-  background: linear-gradient(90deg, #fffcf0 0%, #fff 100%);
-  border-left: 4px solid #ffd700;
-}
-.second {
-  background: linear-gradient(90deg, #f7f7f7 0%, #fff 100%);
-  border-left: 4px solid #c0c0c0;
-}
-.third {
-  background: linear-gradient(90deg, #fcf6f0 0%, #fff 100%);
-  border-left: 4px solid #cd7f32;
-}
-
-/* Container for Rank and Names */
-.leftSection {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-/* Container for Badge and Arrow */
-.rightSection {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* Specific Badge for Power Rankings */
-.badgePower {
-  background: rgba(31, 106, 225, 0.1);
-  color: #1f6ae1;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  border: 1px solid rgba(31, 106, 225, 0.2);
-}
-
-/* Team Name Subtext */
-.teamName {
-  font-size: 0.75rem;
-  opacity: 0.6;
-  font-weight: 500;
-  font-style: italic;
-  margin-top: 2px;
-}
-
-/* Horizontal Stat Items inside Expanded area */
-.statItem {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1 1 25%; /* Allows 4 items per row on large screens */
-  min-width: 80px;
-  margin-bottom: 10px;
-}
-
-.subtitle {
-  text-align: center;
-  font-size: 0.9rem;
-  color: #718096; /* A softer gray */
-  margin-top: -1.5rem; /* Pull it closer to the title */
-  margin-bottom: 2rem;
-  font-style: italic;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* MVP Highlight in the top row */
+/* MVP Highlight */
 .mvpHighlight {
   display: flex;
   flex-direction: column;
@@ -235,7 +201,7 @@
 .mvpHighlight small {
   font-size: 0.6rem;
   font-weight: 800;
-  color: #d69e2e; /* Gold color */
+  color: #d69e2e; /* Gold */
   letter-spacing: 0.05rem;
 }
 
@@ -245,7 +211,27 @@
   color: var(--foreground);
 }
 
-/* Expanded Key Players Layout */
+/* ========================
+   Podium Gradients
+======================== */
+.first {
+  background: linear-gradient(90deg, #fffcf0 0%, #fff 100%);
+  border-left: 4px solid #ffd700;
+}
+
+.second {
+  background: linear-gradient(90deg, #f7f7f7 0%, #fff 100%);
+  border-left: 4px solid #c0c0c0;
+}
+
+.third {
+  background: linear-gradient(90deg, #fcf6f0 0%, #fff 100%);
+  border-left: 4px solid #cd7f32;
+}
+
+/* ========================
+   Key Players & Tables
+======================== */
 .keyPlayersExpanded {
   padding: 1rem;
   background: rgba(0, 0, 0, 0.02);
@@ -287,19 +273,97 @@
   border-bottom: none;
 }
 
-.colPlayer {
-  width: 40%;
+.colPlayer { width: 40%; text-align: left; }
+.colPoints, .colPct, .colWins { width: 20%; text-align: right; }
+
+/* ========================
+   Pre-Draft League Cards
+======================== */
+.leagueInfo {
+  background: linear-gradient(135deg, #f0f4ff, #ffffff);
+  border-radius: 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+}
+
+.leagueInfo p {
+  margin: 0;
+  flex: 1 1 45%;
+  background: rgba(31, 106, 225, 0.05);
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
+}
+
+.cardsPreDraft {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.cardPreDraft {
+  background: linear-gradient(135deg, #fff, #f9faff);
+  border-radius: 12px;
+  border: 1px solid rgba(31, 106, 225, 0.2);
+  padding: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.cardPreDraft::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: rgba(31, 106, 225, 0.03);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.cardPreDraft:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(31, 106, 225, 0.2);
+}
+
+.cardPreDraft:hover .teamNamePreDraft {
+  color: #0b3d91;
+}
+
+.cardPreDraft p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.teamNamePreDraft {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.ownerNamePreDraft {
+  font-size: 0.85rem;
+  color: #555;
+  margin-top: 2px;
+}
+
+.coOwnersPreDraft {
+  font-size: 0.8rem;
+  color: #718096;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.subtitlePreDraft {
   text-align: left;
-}
-.colPoints {
-  width: 20%;
-  text-align: right;
-}
-.colPct {
-  width: 20%;
-  text-align: right;
-}
-.colWins {
-  width: 20%;
-  text-align: right;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  margin-top: 1.2rem;
+  color: #1a202c;
 }

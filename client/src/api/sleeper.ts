@@ -26,11 +26,11 @@ export const getSleeperLeagueStatus = async (
 };
 
 // Use unknown instead of any
-export const getSleeperCompleteSeasonData = async (
+export const getSleeperSeasonData = async (
   id: string
 ): Promise<ApiResult> => {
   try {
-    const response = await api.post("/sleeper/getSleeperCompleteSeasonData", {
+    const response = await api.post("/sleeper/getSleeperSeasonData", {
       id
     });
 

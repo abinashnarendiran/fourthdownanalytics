@@ -3,7 +3,6 @@ const controller = require("../controllers/sleeper");
 
 // Auth routes
 router.post("/getSleeperLeagueStatus", controller.getSleeperLeagueStatus);
-router.post("/getSleeperCompleteSeasonData", controller.getSleeperCompleteSeasonData);
-
+router.post("/getSleeperSeasonData", controller.getSleeperSeasonData);
 
 module.exports = router;
