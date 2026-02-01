@@ -16,7 +16,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Fourth Down Analytics",
-   description: "Analytics for football fantasy fourth downs",
+  description: "Analytics for football fantasy fourth downs",
+  icons: {
+    icon: "/fourth-down-analytics-logo-browser.png",     // your favicon in /public
+  },
 };
 
 export default function RootLayout({
