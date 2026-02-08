@@ -9,5 +9,4 @@ if (process.env.NODE_ENV === "production") {
   console.log("🟢 All cron jobs scheduled (production only)");
 } else {
   console.log("⚠️ Development environment: cron jobs disabled");
-  // scheduleSyncSleperPlayers(); // for testing purposes
 }

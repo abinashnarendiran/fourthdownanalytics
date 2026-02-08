@@ -7,11 +7,11 @@ export type ApiResult<T = unknown> = [Error | null, T | null];
 
 // Use unknown instead of any
 export const getSleeperLeagueStatus = async (
-  id: string
+  id: string,
 ): Promise<ApiResult> => {
   try {
     const response = await api.post("/sleeper/getSleeperLeagueStatus", {
-      id
+      id,
     });
 
     return [null, response.data];
@@ -27,11 +27,13 @@ export const getSleeperLeagueStatus = async (
 
 // Use unknown instead of any
 export const getSleeperSeasonData = async (
-  id: string
+  id: string,
+  week: number,
 ): Promise<ApiResult> => {
   try {
     const response = await api.post("/sleeper/getSleeperSeasonData", {
-      id
+      id,
+      week,
     });
 
     return [null, response.data];
@@ -44,5 +46,3 @@ export const getSleeperSeasonData = async (
     return [e, null];
   }
 };
-
-

@@ -8,6 +8,7 @@ const {
 const {
   completeSeason,
   preDraftSeason,
+  inSeason,
 } = require("../util/getDatabySeasonStatus");
 
 const { enrichRosters, attachUsersToRosters } = require("../util/rosterUtils");
@@ -76,7 +77,7 @@ module.exports.getSleeperLeagueStatus = async (req, res) => {
 module.exports.getSleeperSeasonData = async (req, res) => {
   try {
     const { userId } = req.user;
-    const { id } = req.body; // expecting { id } of the league record
+    const { id, week } = req.body; // expecting { id } of the league record
     if (!id) {
       return res.status(400).json({ message: "id is required" });
     }
@@ -104,7 +105,6 @@ module.exports.getSleeperSeasonData = async (req, res) => {
       leagueRecord;
 
     const {
-      scoringSettings,
       rosterPositions,
       playoffRoundType,
       playoffWeekStart,
@@ -168,15 +168,12 @@ module.exports.getSleeperSeasonData = async (req, res) => {
         rosters,
         users,
         weekSettings,
-        scoringSettings,
-        rosterPositions,
-        seasonYear,
       });
 
       if (completeSeasonData === null) {
         return res.status(500).json({
           message:
-            "We couldn't load the complete season data right now.Please try again in a moment.",
+            "We couldn't load the complete season data right now. Please try again in a moment.",
         });
       }
 
@@ -186,7 +183,25 @@ module.exports.getSleeperSeasonData = async (req, res) => {
       });
     }
 
-    return true;
+    // In Season
+    const inSeasonData = await inSeason({
+      leagueId,
+      rosters,
+      users,
+      weekSettings,
+      currentWeek: week,
+    });
+
+    if (inSeasonData === null) {
+      return res.status(500).json({
+        message:
+          "We couldn't load the in season data right now. Please try again in a moment.",
+      });
+    }
+    return res.status(200).json({
+      status: sleeperStatus,
+      league: inSeasonData,
+    });
   } catch (e) {
     return res.status(500).json({
       message: "Error fetching Sleeper season data:",

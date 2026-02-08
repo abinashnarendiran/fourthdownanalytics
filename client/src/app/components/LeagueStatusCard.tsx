@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { LEAGUE_STATUS_LABELS } from "@/constants/leagueStatusSleeper";
+import { LEAGUE_STATUS } from "@/constants/leagueStatusSleeper";
 import "../../styles/LeagueStatus.css"; // Make sure you import the CSS file
 
 export interface LeagueStatusCardProps {
@@ -16,10 +16,11 @@ export interface LeagueStatusCardProps {
 export const LeagueStatusCard: React.FC<LeagueStatusCardProps> = ({
   leagueMetaData,
 }) => {
-  const statusKey =
-    leagueMetaData.leagueStatus as keyof typeof LEAGUE_STATUS_LABELS;
+  const statusEntry = Object.values(LEAGUE_STATUS).find(
+    (status) => status.value === leagueMetaData.leagueStatus,
+  );
 
-  const statusLabel = LEAGUE_STATUS_LABELS[statusKey] ?? "Unknown";
+  const statusLabel = statusEntry?.label ?? "Unknown";
 
   const statusColors: Record<string, string> = {
     pre_draft: "badge-pre_draft",

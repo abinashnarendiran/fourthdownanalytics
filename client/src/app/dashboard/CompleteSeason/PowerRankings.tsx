@@ -12,53 +12,22 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
 }) => {
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
-  // define all stats
   const statsDescriptions = [
     {
       label: "Power Score",
       description:
-        "Overall performance score combining points, wins, consistency, playoffs, and schedule difficulty.",
+        "Overall performance score combining points, wins, and end-of-season badges.",
     },
     {
       label: "Total Points",
       description: "Points scored during the regular season.",
     },
     {
-      label: "Playoff Points",
-      description: "Points scored during playoffs only including (Winners & Losers brackets), and consolation matches.",
-    },
-    {
       label: "Wins",
       description: "Number of matches won during the regular season.",
     },
-    {
-      label: "Expected Wins",
-      description:
-        "Number of wins your team was expected to have based on league median performance.",
-    },
-    {
-      label: "Luck",
-      description:
-        "Shows how your team's actual wins compare to expected wins. Positive = lucky wins, Negative = unlucky losses.",
-    },
-    {
-      label: "Consistency",
-      description:
-        "Measures how steady your team scored each week. Values closer to 1 = very consistent, values closer to 0 = inconsistent.",
-    },
-    {
-      label: "Strength of Schedule",
-      description:
-        "Measures the difficulty of your opponents relative to the league. Values >1 = tougher opponents, values <1 = easier opponents.",
-    },
-    {
-      label: "Championship",
-      description: "Winner of the league.",
-    },
-    {
-      label: "Runner-Up",
-      description: "Second place in the league.",
-    },
+    { label: "Championship", description: "Winner of the league." },
+    { label: "Runner-Up", description: "Second place in the league." },
     {
       label: "Last Place",
       description: "Indicates whether your team finished in last place.",
@@ -77,8 +46,8 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
     <div className={styles.container}>
       <h2 className={styles.title}>Fantasy League Power Rankings</h2>
       <p className={styles.subtitle}>
-        Includes regular season, playoffs (Winners & Losers brackets), and
-        consolation matches.
+        Complete season rankings (regular season + playoffs + consolation
+        matches)
       </p>
       <div className={styles.cards}>
         <PowerRankingsTooltip stats={statsDescriptions} />
@@ -98,7 +67,7 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
                         ? styles.third
                         : ""
                 }`}>
-                {/* Top row: Rank, Owner, Power Score, Arrow */}
+                {/* Top row: Rank, Owner, Power Score */}
                 <div
                   className={styles.topRow}
                   onClick={() => toggleRow(team.rosterId)}>
@@ -106,13 +75,11 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
                   <div className={styles.ownerColumn}>
                     <div className={styles.owner}>{team.owner}</div>
                     <div className={styles.powerScore}>
-                      Power Score: {team.powerScore.toFixed(2)}
+                      Power Score: {team.powerScore.toFixed(1)}
                     </div>
                   </div>
                   <div
-                    className={`${styles.arrow} ${
-                      isExpanded ? styles.arrowExpanded : ""
-                    }`}>
+                    className={`${styles.arrow} ${isExpanded ? styles.arrowExpanded : ""}`}>
                     ▼
                   </div>
                 </div>
@@ -121,18 +88,10 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
                 {isExpanded && (
                   <div className={styles.expandedStats}>
                     <div className={styles.statColumn}>
-                      <div>Total Points: {team.totalPoints} </div>
+                      <div>Total Points: {team.totalPoints}</div>
                       <div>Wins: {team.wins}</div>
-                      <div>Expected Wins: {team.expectedWins}</div>
-                      <div>Playoff Points: {team.playoffPoints.toFixed(2)}</div>
-                      <div>Consistency: {team.consistency.toFixed(3)}</div>
                     </div>
                     <div className={styles.statColumn}>
-                      <div>Luck: {team.luck}</div>
-                      <div>
-                        Strength of Schedule:{" "}
-                        {team.strengthOfSchedule.toFixed(3)}
-                      </div>
                       <div>
                         Championship: {team.championship ? "Yes" : "No"}
                       </div>

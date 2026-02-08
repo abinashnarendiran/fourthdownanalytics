@@ -1,77 +1,24 @@
 import React from "react";
 import PowerRankings from "./PowerRankings";
-import LuckIndex from "./LuckIndex";
-import LineupEfficiency from "./LineupEfficiency";
-import KeyPlayers from "./KeyPlayers";
 
 // Optional: import future components
 // import WinsVsExpected from "./wins-vs-expected/WinsVsExpected";
 // import ChampionshipsSummary from "./championships-summary/ChampionshipsSummary";
 
 export interface PowerRankingsData {
-  rosterId: number;
-  owner: string;
-  teamName: string;
-  totalPoints: number;
-  playoffPoints: number;
-  wins: number;
-  expectedWins: number;
-  luck: number;
-  consistency: number;
-  strengthOfSchedule: number;
-  championship: boolean;
-  runnerUp: boolean;
-  lastPlace: boolean;
-  rank: number;
-  powerScore: number;
+  rosterId: number;       // Unique team identifier
+  owner: string;          // Owner display name
+  teamName: string;       // Custom team name
+  totalPoints: number;    // Regular season points
+  wins: number;           // Regular season wins
+  championship: boolean;  // Won the league
+  runnerUp: boolean;      // Finished 2nd
+  lastPlace: boolean;     // Finished last
+  powerScore: number;     // Overall score combining all metrics
+  rank: number;           // Rank
 }
-
-export interface LuckItem {
-  rosterId: string | number;
-  owner: string; // added owner
-  teamName: string;
-  actualWins: number;
-  expectedWins: number;
-  luck: number;
-}
-
-export interface LineupEfficiencyItem {
-  rosterId: string | number;
-  owner: string;
-  teamName: string;
-  actual: number;
-  optimal: number;
-  missedPoints: number;
-  efficiency: number; // float 0-1
-}
-
-export interface PlayerStats {
-  rank: number;
-  fullName: string;
-  totalPoints: string;
-  weeksPlayed: number;
-  wins: number;
-  contributionPct: string;
-}
-
-export interface KeyPlayersItem {
-  rosterId: string;
-  owner: string;
-  teamName: string;
-  keyPlayers: {
-    regularSeason: PlayerStats[];
-    playoffs: PlayerStats[];
-  };
-}
-
 export interface SeasonData {
   finalPowerRankings: PowerRankingsData[];
-  luckIndex: LuckItem[];
-  lineupEfficiency: LineupEfficiencyItem[];
-  keyPlayers: KeyPlayersItem[];
-  // You can add other season objects later, e.g.,
-  // standings?: TeamData[];
-  // matchups?: MatchupData[];
 }
 
 interface CompleteSeasonProps {
@@ -83,9 +30,6 @@ const CompleteSeason: React.FC<CompleteSeasonProps> = ({ seasonData }) => {
       <PowerRankings
         finalPowerRankings={seasonData?.finalPowerRankings || []}
       />
-      <LuckIndex luckIndex={seasonData?.luckIndex || []} />
-      <LineupEfficiency lineupEfficiency={seasonData?.lineupEfficiency || []} />
-      <KeyPlayers keyPlayers={seasonData?.keyPlayers || []} />
     </div>
   );
 };

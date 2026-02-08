@@ -8,20 +8,10 @@ const {
 } = require("../services/sleeper"); // adjust path
 const {
   computeFinalPowerRankings,
-  computeLuckIndex,
-  computeLineupEfficiency,
-  computeKeyPlayers,
+  computeInSeasonPowerRankings,
 } = require("./metricsUtil");
 
-const completeSeason = async ({
-  leagueId,
-  rosters,
-  users,
-  weekSettings,
-  scoringSettings,
-  rosterPositions,
-  seasonYear,
-}) => {
+const completeSeason = async ({ leagueId, rosters, users, weekSettings }) => {
   try {
     // For COMPLETE season, set week to total scoring weeks
     // so that front-end can fetch all matchups
@@ -39,7 +29,11 @@ const completeSeason = async ({
       losersBracket,
     );
 
-    const luckIndex = computeLuckIndex(rosters, users, matchupsByWeek);
+    /* const luckIndex = computeCompleteSeasonLuckIndex(
+      rosters,
+      users,
+      matchupsByWeek,
+    );
 
     const lineupEfficiency = await computeLineupEfficiency(
       matchupsByWeek,
@@ -49,25 +43,19 @@ const completeSeason = async ({
       rosterPositions,
       seasonYear,
       true, // complete season flag
-    );
+    ); */
 
-    const keyPlayers = await computeKeyPlayers(
+    /* const keyPlayers = await computeCompleteSeasonKeyPlayers(
       matchupsByWeek,
       rosters,
       users,
       scoringSettings,
       seasonYear,
       weekSettings,
-    );
+    ); */
 
     return {
-      matchupsByWeek,
-      winnersBracket,
-      losersBracket,
       finalPowerRankings,
-      luckIndex,
-      lineupEfficiency,
-      keyPlayers,
     };
   } catch (e) {
     return null;
@@ -80,10 +68,19 @@ const preDraftSeason = async ({
   rosters,
   users,
   config,
+  leagueType,
   rosterPositions,
   seasonYear,
 }) => {
   try {
+    const playoffTeams = config.playoffTeams || 0;
+
+    let rounds = 0;
+    if (playoffTeams > 0) {
+      rounds = Math.ceil(Math.log2(playoffTeams));
+    }
+    const playoffWeeks = rounds * (config.playoffRoundType === 1 ? 2 : 1);
+
     // Map teams for dashboard
     const teams = rosters.map((roster) => {
       const owner = roster.owner || {};
@@ -132,17 +129,71 @@ const preDraftSeason = async ({
         return config?.draft?.draftOrder[roster.owner.user_id] || "N/A";
       })(),
       playoffTeams: config.playoffTeams,
-      playoffWeeks: config.playoffWeekStart,
+      playoffWeeks,
       regularSeasonWeeks: config.playoffWeekStart - 1,
       tradeDeadlineWeek:
         config.tradeDeadline === 99
           ? "No Trade Deadline"
           : config.tradeDeadline,
       wavierType: WAIVERTYPES[config.wavierType],
+      leagueType,
     };
   } catch (error) {
     return null;
   }
 };
 
-module.exports = { completeSeason, preDraftSeason };
+const inSeason = async ({
+  leagueId,
+  rosters,
+  users,
+  weekSettings,
+  currentWeek,
+}) => {
+  try {
+    const matchupsByWeek = await getAllMatchups(leagueId, weekSettings);
+    const powerRankings = computeInSeasonPowerRankings(
+      rosters,
+      users,
+      matchupsByWeek,
+      currentWeek,
+    );
+    /*  const luckIndex = computeInSeasonLuckIndex(
+      rosters,
+      users,
+      matchupsByWeek,
+      currentWeek,
+    );
+
+    const lineupEfficiency = await computeInSeasonLineupEfficiency(
+      matchupsByWeek,
+      rosters,
+      users,
+      scoringSettings,
+      seasonYear,
+      currentWeek,
+    ); */
+
+    /* const rollingWindow = 3;
+    const topNPlayers = 5;
+    const totalWeeks = regularSeasonWeeks;
+
+    const keyPlayers = await computeInSeasonKeyPlayers(
+      matchupsByWeek,
+      rosters,
+      users,
+      scoringSettings,
+      currentWeek,
+      totalWeeks,
+      topNPlayers,
+      rollingWindow,
+    ); */
+
+    return { powerRankings };
+  } catch (e) {
+    return null;
+  }
+  // Current Power Rankings
+};
+
+module.exports = { completeSeason, preDraftSeason, inSeason };

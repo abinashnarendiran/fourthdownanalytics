@@ -1,44 +1,10 @@
-const {
+/* const {
   PlayerWeekProjections,
   PlayerWeekStats,
   Players,
-} = require("../models");
+} = require("../models"); */
 const { getLineupSlots, getLeagueWeeks } = require("./rosterUtils");
 const { sumTop, calculateFantasyPoints } = require("./statsUtiil");
-
-const computeLeagueAverages = (projectedPlayers) => {
-  const totals = {};
-  const counts = {};
-
-  projectedPlayers.forEach((p) => {
-    const pos = p.position;
-
-    if (!totals[pos]) {
-      totals[pos] = 0;
-      counts[pos] = 0;
-    }
-
-    totals[pos] += p.projectedPoints;
-    counts[pos] += 1;
-  });
-
-  const averagesByPosition = {};
-  Object.keys(totals).forEach((pos) => {
-    averagesByPosition[pos] = Number((totals[pos] / counts[pos]).toFixed(2));
-  });
-
-  const leagueAveragePlayer = Number(
-    (
-      projectedPlayers.reduce((sum, p) => sum + p.projectedPoints, 0) /
-      projectedPlayers.length
-    ).toFixed(2),
-  );
-
-  return {
-    byPosition: averagesByPosition,
-    overall: leagueAveragePlayer,
-  };
-};
 
 const computeTeamProjections = (
   rosters,
@@ -115,13 +81,11 @@ const computeFinalPowerRankings = (
   const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
 
   const teams = {};
-  const leagueScores = [];
 
   // -----------------------------
   // INIT TEAMS
   // -----------------------------
   rosters.forEach((r) => {
-    // Find the user object that matches the owner
     const user = users.find((u) => u.display_name === r.owner?.display_name);
 
     teams[r.rosterId] = {
@@ -132,29 +96,18 @@ const computeFinalPowerRankings = (
         (r?.owner?.display_name ? `Team ${r.owner.display_name}` : "Unknown"),
       points: 0,
       wins: 0,
-      expectedWins: 0,
-      opponentPoints: [],
       weeklyScores: [],
-      playoffPoints: 0,
       championships: 0,
       runnerUps: 0,
-      toiletBowlWins: 0,
       lastPlace: false,
     };
   });
 
   // -----------------------------
-  // REGULAR SEASON ONLY
+  // REGULAR SEASON SCORES
   // -----------------------------
   Object.entries(matchupsByWeek).forEach(([week, matchups]) => {
-    // Only process weeks up to regularSeasonWeeks
     if (Number(week) > regularSeasonWeeks) return;
-
-    const scores = matchups.map((m) => m.points);
-    if (!scores.length) return;
-
-    const sorted = [...scores].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
 
     matchups.forEach((m) => {
       const team = teams[m.rosterId];
@@ -162,29 +115,13 @@ const computeFinalPowerRankings = (
 
       team.points += m.points;
       team.weeklyScores.push(m.points);
-      team.opponentPoints.push(m.opponent_points);
-      leagueScores.push(m.points);
 
       if (m.points > m.opponent_points) team.wins += 1;
-      if (m.points >= median) team.expectedWins += 1;
     });
   });
 
   // -----------------------------
-  // PLAYOFF POINTS ONLY
-  // -----------------------------
-  Object.entries(matchupsByWeek).forEach(([week, matchups]) => {
-    if (Number(week) <= regularSeasonWeeks) return;
-
-    matchups.forEach((m) => {
-      if (teams[m.rosterId]) {
-        teams[m.rosterId].playoffPoints += m.points || 0;
-      }
-    });
-  });
-
-  // -----------------------------
-  // BRACKET HELPERS
+  // PLAYOFF / BRACKET RESULTS
   // -----------------------------
   const getBracketFinal = (bracket) => {
     if (!bracket.length) return null;
@@ -192,85 +129,42 @@ const computeFinalPowerRankings = (
     return bracket.find((m) => m.r === maxRound);
   };
 
-  // -----------------------------
-  // WINNERS BRACKET
-  // -----------------------------
   const winnersFinal = getBracketFinal(winnersBracket);
   if (winnersFinal?.w) teams[winnersFinal.w].championships += 1;
   if (winnersFinal?.l) teams[winnersFinal.l].runnerUps += 1;
 
-  // -----------------------------
-  // LOSERS BRACKET
-  // -----------------------------
   const losersFinal = getBracketFinal(losersBracket);
-  if (losersFinal?.w) teams[losersFinal.l].toiletBowlWins += 1;
-  if (losersFinal?.l) teams[losersFinal.w].lastPlace = true;
+  if (losersFinal?.l) teams[losersFinal.l].lastPlace = true;
 
   // -----------------------------
-  // LEAGUE AVERAGES
-  // -----------------------------
-  const leagueAvg =
-    leagueScores.reduce((a, b) => a + b, 0) / (leagueScores.length || 1);
-
-  // -----------------------------
-  // BUILD FINAL RANKINGS
+  // BUILD CLEAN DASHBOARD RANKINGS
   // -----------------------------
   const rankings = Object.values(teams).map((t) => {
-    const gamesPlayed = t.weeklyScores.length || 1;
-
-    const avgOpp =
-      t.opponentPoints.reduce((a, b) => a + b, 0) /
-      (t.opponentPoints.length || 1);
-
-    const mean = t.points / gamesPlayed;
-
-    const variance =
-      t.weeklyScores.reduce((s, p) => s + (p - mean) ** 2, 0) / gamesPlayed;
-
-    const consistency = (1 / (Math.sqrt(variance) + 1)) * 10; // smoother
-    const luck = t.wins - t.expectedWins;
-    const sos = avgOpp / leagueAvg;
-
-    let powerScore =
-      t.points * 0.45 +
-      t.playoffPoints * 0.25 +
-      t.wins * 4 +
-      luck * 2 +
-      consistency * 3 +
-      sos * 5;
-
-    if (t.championships) powerScore += 40;
-    if (t.runnerUps) powerScore += 15;
-    if (t.toiletBowlWins) powerScore += 3;
-    if (t.lastPlace) powerScore -= 25;
+    // Simplified powerScore just based on points, wins, and championship/runner-up/lastPlace
+    let powerScore = t.points * 1 + t.wins * 5;
+    if (t.championships) powerScore += 50;
+    if (t.runnerUps) powerScore += 20;
+    if (t.lastPlace) powerScore -= 30;
 
     return {
       rosterId: t.rosterId,
       owner: t.owner,
-      totalPoints: Number(t.points.toFixed(2)),
-      playoffPoints: Number(t.playoffPoints.toFixed(2)),
+      teamName: t.teamName,
+      totalPoints: Number(t.points.toFixed(1)),
       wins: t.wins,
-      expectedWins: t.expectedWins,
-      luck: Number(luck.toFixed(2)),
-      consistency: Number(consistency.toFixed(3)),
-      strengthOfSchedule: Number(sos.toFixed(3)),
       championship: t.championships === 1,
       runnerUp: t.runnerUps === 1,
       lastPlace: t.lastPlace === 1,
-      powerScore: Number(powerScore.toFixed(2)),
+      powerScore: Number(powerScore.toFixed(1)),
     };
   });
 
+  // Sort & assign ranks
   rankings.sort((a, b) => b.powerScore - a.powerScore);
-  const ranked = rankings.map((r, i) => ({
-    ...r,
-    rank: i + 1,
-  }));
-
-  return ranked;
+  return rankings.map((r, i) => ({ ...r, rank: i + 1 }));
 };
 
-const computeLuckIndex = (rosters, users, matchupsByWeek) => {
+/* const computeCompleteSeasonLuckIndex = (rosters, users, matchupsByWeek) => {
   const teamStats = {};
 
   Object.entries(matchupsByWeek).forEach(([, weekMatchups]) => {
@@ -308,9 +202,9 @@ const computeLuckIndex = (rosters, users, matchupsByWeek) => {
       luck: Number((stats.actualWins - stats.expectedWins).toFixed(2)),
     };
   });
-};
+}; */
 
-const computeLineupEfficiency = async (
+/* const computeLineupEfficiency = async (
   matchupsByWeek,
   rosters,
   users,
@@ -548,9 +442,9 @@ const computeLineupEfficiency = async (
   }
 
   return dashboard ? totalEfficiency : { totalEfficiency, weeklyEfficiency };
-};
+}; */
 
-const computeKeyPlayers = async (
+/* const computeCompleteSeasonKeyPlayers = async (
   matchupsByWeek,
   rosters,
   users,
@@ -696,14 +590,434 @@ const computeKeyPlayers = async (
       },
     };
   });
+}; */
+
+const computeInSeasonPowerRankings = (
+  rosters,
+  users,
+  matchupsByWeek,
+  currentWeek,
+) => {
+  const teams = {};
+
+  // Initialize teams
+  rosters.forEach((r) => {
+    const user = users.find((u) => u.display_name === r.owner?.display_name);
+    teams[r.rosterId] = {
+      rosterId: r.rosterId,
+      owner: r.owner?.display_name || "Unknown",
+      teamName:
+        user?.metadata?.team_name ||
+        `Team ${r.owner?.display_name || "Unknown"}`,
+      points: 0,
+      wins: 0,
+      weeklyScores: [],
+      weightedScore: 0,
+    };
+  });
+
+  // Aggregate weekly stats
+  Object.entries(matchupsByWeek).forEach(([week, matchups]) => {
+    const weekNum = Number(week);
+    if (weekNum > currentWeek) return;
+
+    matchups.forEach((m) => {
+      const team = teams[m.rosterId];
+      if (!team) return;
+
+      const points = m.points || 0;
+      const oppPoints = m.opponent_points || 0;
+
+      // Create a new object instead of mutating the parameter
+      teams[m.rosterId] = {
+        ...team,
+        points: team.points + points,
+        weeklyScores: [...team.weeklyScores, points],
+        wins: team.wins + (points > oppPoints ? 1 : 0),
+      };
+    });
+  });
+
+  // Compute weighted score
+  const maxPoints = Math.max(...Object.values(teams).map((t) => t.points), 1);
+
+  Object.entries(teams).forEach(([rosterId, team]) => {
+    const games = team.weeklyScores.length || 1;
+    const winRatio = team.wins / games;
+    const normalizedPoints = team.points / maxPoints;
+    let weightedScore = winRatio * 0.55 + normalizedPoints * 0.45;
+
+    if (team.wins === 0) weightedScore = normalizedPoints; // handle winless
+
+    // Replace with a new object to avoid mutating function parameter
+    teams[rosterId] = {
+      ...team,
+      weightedScore: Number(weightedScore.toFixed(3)),
+      winRatio: Number(winRatio.toFixed(3)),
+      points: Number(team.points.toFixed(2)),
+    };
+  });
+
+  return Object.values(teams).sort((a, b) => b.weightedScore - a.weightedScore);
 };
 
+/* const computeInSeasonLuckIndex = (
+  rosters,
+  users,
+  matchupsByWeek,
+  currentWeek,
+) => {
+  const teamStats = {};
+
+  // Iterate over each week
+  Object.entries(matchupsByWeek).forEach(([weekStr, weekMatchups]) => {
+    const weekNum = Number(weekStr);
+    if (weekNum > currentWeek) return; // skip future weeks
+
+    const scores = weekMatchups.map((m) => m.points);
+    const median = scores.sort((a, b) => a - b)[Math.floor(scores.length / 2)];
+
+    weekMatchups.forEach((m) => {
+      if (!teamStats[m.rosterId]) {
+        teamStats[m.rosterId] = {
+          actualWins: 0,
+          expectedWins: 0,
+          weeklyLuck: [],
+        };
+      }
+
+      const expectedWin = m.points >= median ? 1 : 0;
+      const actualWin = m.points > m.opponent_points ? 1 : 0;
+
+      // Update cumulative wins
+      teamStats[m.rosterId].expectedWins += expectedWin;
+      teamStats[m.rosterId].actualWins += actualWin;
+
+      // Weekly luck
+      teamStats[m.rosterId].weeklyLuck.push(actualWin - expectedWin);
+    });
+  });
+
+  return Object.entries(teamStats).map(([rosterId, stats]) => {
+    const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
+    const user = users.find(
+      (u) => u.display_name === ownerObj?.owner?.display_name,
+    );
+
+    const n = stats.weeklyLuck.length;
+    const luckSum = stats.weeklyLuck.reduce((acc, val) => acc + val, 0);
+    const luckAvg = n ? luckSum / n : 0;
+    const luckVariance = n
+      ? stats.weeklyLuck.reduce((acc, val) => acc + (val - luckAvg) ** 2, 0) / n
+      : 0;
+
+    // 🔹 Season-level luck (standings-based)
+    const seasonLuck = stats.actualWins - stats.expectedWins;
+
+    return {
+      rosterId,
+      owner: ownerObj?.owner?.display_name || "Unknown",
+      teamName:
+        user?.metadata?.team_name ||
+        (ownerObj?.owner?.display_name
+          ? `Team ${ownerObj?.owner?.display_name}`
+          : "Unknown"),
+
+      // Record-based metrics (top-level dashboard)
+      actualWins: stats.actualWins,
+      expectedWins: stats.expectedWins,
+      seasonLuck: Number(seasonLuck.toFixed(2)),
+
+      // In-season luck analytics
+      weeklyLuck: stats.weeklyLuck,
+      luckSum: Number(luckSum.toFixed(2)),
+      luckAvg: Number(luckAvg.toFixed(2)),
+      luckVariance: Number(luckVariance.toFixed(2)),
+    };
+  });
+}; */
+
+/* const computeInSeasonLineupEfficiency = async (
+  matchupsByWeek,
+  rosters,
+  users,
+  scoringSettings,
+  seasonYear,
+  currentWeek,
+) => {
+  const totalsMap = {};
+
+  // ---------- HELPERS ----------
+  const getActualPoints = async (playerId, week) => {
+    if (!playerId) return 0;
+
+    const stat = await PlayerWeekStats.findOne({
+      where: { week, season: seasonYear, source: "sleeper" },
+      include: [
+        {
+          model: Players,
+          where: { sleeperPlayerId: playerId },
+          required: true,
+        },
+      ],
+      nest: true,
+    });
+
+    if (!stat) return 0;
+    return calculateFantasyPoints(stat.stats, scoringSettings);
+  };
+
+  const getProjectedPoints = async (playerId, week) => {
+    if (!playerId) return 0;
+
+    const projection = await PlayerWeekProjections.findOne({
+      where: { week, season: seasonYear, source: "sleeper" },
+      include: [
+        {
+          model: Players,
+          where: { sleeperPlayerId: playerId },
+          required: true,
+        },
+      ],
+      nest: true,
+    });
+
+    if (!projection) return 0;
+    return calculateFantasyPoints(projection.projections, scoringSettings);
+  };
+
+  // ---------- MAIN LOOP ----------
+  await Promise.all(
+    Object.entries(matchupsByWeek).map(async ([weekStr, matchups]) => {
+      const week = Number(weekStr);
+      if (week > currentWeek) return;
+
+      await Promise.all(
+        matchups.map(async (team) => {
+          const { rosterId } = team;
+
+          if (!totalsMap[rosterId]) {
+            totalsMap[rosterId] = {
+              starters: 0,
+              total: 0,
+              projectedStarters: 0,
+              projectedTotal: 0,
+            };
+          }
+
+          // starters
+          await Promise.all(
+            (team.starters || []).map(async (starter) => {
+              const playerId =
+                typeof starter === "string"
+                  ? starter
+                  : starter?.pid ||
+                    Object.keys(starter || {}).find((k) =>
+                      k.startsWith("TEAM_"),
+                    );
+
+              if (!playerId) return;
+
+              const actual = await getActualPoints(playerId, week);
+              const projected = await getProjectedPoints(playerId, week);
+
+              totalsMap[rosterId].starters += actual;
+              totalsMap[rosterId].projectedStarters += projected;
+              totalsMap[rosterId].total += actual;
+              totalsMap[rosterId].projectedTotal += projected;
+            }),
+          );
+
+          // bench
+          await Promise.all(
+            (team.players || []).map(async (playerId) => {
+              if ((team.starters || []).includes(playerId)) return;
+
+              const actual = await getActualPoints(playerId, week);
+              const projected = await getProjectedPoints(playerId, week);
+
+              totalsMap[rosterId].total += actual;
+              totalsMap[rosterId].projectedTotal += projected;
+            }),
+          );
+        }),
+      );
+    }),
+  );
+
+  // ---------- DASHBOARD OUTPUT ----------
+  return Object.entries(totalsMap).map(([rosterId, totals]) => {
+    const roster = rosters.find((r) => r.rosterId.toString() === rosterId);
+    const user = users.find(
+      (u) => u.display_name === roster?.owner?.display_name,
+    );
+
+    const actualEfficiency =
+      totals.total > 0
+        ? Number(((totals.starters / totals.total) * 100).toFixed(2))
+        : 0;
+
+    const projectedEfficiency =
+      totals.projectedTotal > 0
+        ? Number(
+            ((totals.projectedStarters / totals.projectedTotal) * 100).toFixed(
+              2,
+            ),
+          )
+        : 0;
+
+    return {
+      rosterId: Number(rosterId),
+      owner: roster?.owner?.display_name ?? "Unknown",
+      teamName:
+        user?.metadata?.team_name ||
+        `Team ${roster?.owner?.display_name ?? "Unknown"}`,
+
+      lineupEfficiency: actualEfficiency,
+      projectedEfficiency,
+      efficiencyDelta: Number(
+        (actualEfficiency - projectedEfficiency).toFixed(2),
+      ),
+    };
+  });
+};
+ */
+/* const computeInSeasonKeyPlayers = async (
+  matchupsByWeek,
+  rosters,
+  users,
+  scoringSettings,
+  currentWeek,
+  topNPlayers = 3,
+) => {
+  const playerStatsByRoster = {};
+  const teamTotalPoints = {};
+
+  const getActualPoints = async (playerId, week) => {
+    if (!playerId)
+      return { points: 0, fullName: "Unknown", position: "Unknown" };
+
+    const stat = await PlayerWeekStats.findOne({
+      where: { week, source: "sleeper" },
+      include: [
+        {
+          model: Players,
+          where: { sleeperPlayerId: playerId },
+          required: true,
+        },
+      ],
+      nest: true,
+    });
+
+    if (!stat) return { points: 0, fullName: "Unknown", position: "Unknown" };
+
+    return {
+      points: calculateFantasyPoints(stat.stats, scoringSettings),
+      fullName: stat.Player?.fullName || "Unknown",
+      position: stat.Player?.position || "Unknown",
+    };
+  };
+
+  // ---------- AGGREGATE ----------
+  await Promise.all(
+    Object.entries(matchupsByWeek)
+      .filter(([weekStr]) => Number(weekStr) <= currentWeek)
+      .map(async ([weekStr, matchups]) => {
+        const week = Number(weekStr);
+
+        await Promise.all(
+          matchups.map(async (team) => {
+            const { rosterId } = team;
+
+            if (!playerStatsByRoster[rosterId])
+              playerStatsByRoster[rosterId] = {};
+            if (!teamTotalPoints[rosterId]) teamTotalPoints[rosterId] = 0;
+
+            await Promise.all(
+              (team.starters || []).map(async (starter) => {
+                const playerId =
+                  typeof starter === "string"
+                    ? starter
+                    : starter?.pid ||
+                      Object.keys(starter || {}).find((k) =>
+                        k.startsWith("TEAM_"),
+                      );
+
+                if (!playerId) return;
+
+                const { points, fullName, position } = await getActualPoints(
+                  playerId,
+                  week,
+                );
+
+                if (!playerStatsByRoster[rosterId][playerId]) {
+                  playerStatsByRoster[rosterId][playerId] = {
+                    totalPoints: 0,
+                    fullName,
+                    position,
+                  };
+                }
+
+                playerStatsByRoster[rosterId][playerId].totalPoints += points;
+                teamTotalPoints[rosterId] += points;
+              }),
+            );
+          }),
+        );
+      }),
+  );
+
+  // ---------- DASHBOARD OUTPUT ----------
+  return Object.entries(playerStatsByRoster).map(([rosterId, players]) => {
+    const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
+    const user = users.find(
+      (u) => u.display_name === ownerObj?.owner?.display_name,
+    );
+
+    const topPlayers = Object.values(players)
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .slice(0, topNPlayers);
+
+    const topPlayersPoints = topPlayers.reduce(
+      (sum, p) => sum + p.totalPoints,
+      0,
+    );
+
+    const contributionPct =
+      teamTotalPoints[rosterId] > 0
+        ? Number(
+            ((topPlayersPoints / teamTotalPoints[rosterId]) * 100).toFixed(2),
+          )
+        : 0;
+
+    return {
+      rosterId: Number(rosterId),
+      owner: ownerObj?.owner?.display_name ?? "Unknown",
+      teamName:
+        user?.metadata?.team_name ||
+        `Team ${ownerObj?.owner?.display_name ?? "Unknown"}`,
+
+      keyPlayersSummary: {
+        topPlayers: topPlayers.map((p) => ({
+          fullName: p.fullName,
+          position: p.position,
+          totalPoints: Number(p.totalPoints.toFixed(2)),
+        })),
+        topPlayersContributionPct: contributionPct,
+      },
+    };
+  });
+};
+ */
 module.exports = {
-  computeLeagueAverages,
   computeTeamProjections,
   computeFinalPowerRankings,
-  computeLuckIndex,
-  computeLineupEfficiency,
+  /* computeCompleteSeasonLuckIndex,
+  computeLineupEfficiency, */
   calculateFantasyPoints,
-  computeKeyPlayers,
+  /* computeCompleteSeasonKeyPlayers, */
+  computeInSeasonPowerRankings,
+  /* computeInSeasonLuckIndex,
+  computeInSeasonLineupEfficiency,
+  computeInSeasonKeyPlayers, */
 };
