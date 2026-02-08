@@ -136,7 +136,7 @@ export const Dashboard = () => {
             {/* MAIN ANALYTICS COLUMN */}
             <div className="lg:col-span-8">
               {leagueMetaData && seasonData ? (
-                <div className="bg-white rounded-2xl border border-border shadow-sm p-8 min-h-[600px]">
+                <div className="bg-white rounded-2xl border border-border shadow-sm p-8 min-h-150">
                   <header className="flex justify-between items-center mb-8">
                     <h3 className="text-xl font-bold">Season Performance</h3>
                     <div className="text-xs font-bold px-2 py-1 bg-accent/10 text-accent rounded uppercase">
