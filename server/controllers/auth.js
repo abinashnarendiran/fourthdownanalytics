@@ -32,7 +32,9 @@ module.exports.signup = async (req, res) => {
     }); // Save new user to database
 
     // 4️⃣ Send success response
-    return res.status(201).json(newUser); // Respond with the created user
+    // Use a different variable name
+    const { password: _, ...userWithoutPassword } = newUser.toJSON();
+    return res.status(201).json(userWithoutPassword);
   } catch (err) {
     console.error(err); // Log error
     return res.status(500).json({ message: "Try Again" }); // Respond with error message

@@ -13,7 +13,7 @@ module.exports.getUserPlatforms = async (req, res) => {
     const { userId } = req.user; // assuming req.user is set
 
     // All platforms you want to show
-    const allPlatforms = ENABLED_PLATFORMS;
+    const allPlatforms = [ENABLED_PLATFORMS.SLEEPER];
 
     // Fetch the user's connected platforms along with leagues
     const userPlatformsRaw = await FantasyPlatforms.findAll({

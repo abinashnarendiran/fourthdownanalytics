@@ -103,7 +103,7 @@ export const Dashboard = () => {
       </div>
 
       {
-        leagueMetaData?.leagueStatus === LEAGUE_STATUS.preDraft.value && <div className="flex flex-col">
+        leagueMetaData?.leagueStatus === LEAGUE_STATUS.inSeason.value && <div className="flex flex-col">
           <CurrentWeekSelector
             currentWeek={selectedWeek}
             disabled={loading}
