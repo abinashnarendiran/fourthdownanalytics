@@ -36,7 +36,6 @@ module.exports.signup = async (req, res) => {
     const { password: _, ...userWithoutPassword } = newUser.toJSON();
     return res.status(201).json(userWithoutPassword);
   } catch (err) {
-    console.error(err); // Log error
     return res.status(500).json({ message: "Try Again" }); // Respond with error message
   }
 };
