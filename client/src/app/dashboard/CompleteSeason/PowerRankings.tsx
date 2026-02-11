@@ -4,11 +4,13 @@ import { PowerRankingsData } from "./CompleteSeason";
 import PowerRankingsTooltip from "@/app/components/PowerRankingsTooltip";
 
 export interface PowerRankingsProps {
-  finalPowerRankings: PowerRankingsData[];
+  powerRankings: PowerRankingsData[];
+  isInSeason?: boolean; // Optional flag to show/hide trends
 }
 
 const PowerRankings: React.FC<PowerRankingsProps> = ({
-  finalPowerRankings,
+  powerRankings,
+  isInSeason = false,
 }) => {
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
@@ -42,16 +44,30 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
     );
   };
 
+  const getTrendColor = (trend: string) => {
+    if (trend === '▲') return styles.trendUp;
+    if (trend === '▼') return styles.trendDown;
+    return styles.trendNeutral;
+  };
+
+  const formatRankChange = (rankChange: number) => {
+    if (rankChange === 0) return '';
+    const abs = Math.abs(rankChange);
+    return rankChange > 0 ? `+${abs}` : `-${abs}`;
+  };
+
   return (
     <div className={styles.container}>
       <h2 className={styles.title}>Fantasy League Power Rankings</h2>
       <p className={styles.subtitle}>
-        Complete season rankings (regular season + playoffs + consolation
-        matches)
+        {isInSeason 
+          ? "Current season rankings (updates weekly)"
+          : "Complete season rankings (regular season + playoffs + consolation matches)"
+        }
       </p>
       <div className={styles.cards}>
         <PowerRankingsTooltip stats={statsDescriptions} />
-        {finalPowerRankings
+        {powerRankings
           .sort((a, b) => a.rank - b.rank)
           .map((team) => {
             const isExpanded = expandedRows.includes(team.rosterId);
@@ -67,11 +83,25 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
                         ? styles.third
                         : ""
                 }`}>
-                {/* Top row: Rank, Owner, Power Score */}
+                {/* Top row: Rank, Trend, Owner, Power Score */}
                 <div
                   className={styles.topRow}
                   onClick={() => toggleRow(team.rosterId)}>
-                  <div className={styles.rank}>#{team.rank}</div>
+                  <div className={styles.rankSection}>
+                    <div className={styles.rank}>#{team.rank}</div>
+                    {isInSeason && (
+                      <div className={styles.trendContainer}>
+                        <span className={`${styles.trendIcon} ${getTrendColor(team.trend)}`}>
+                          {team.trend}
+                        </span>
+                        {team.rankChange !== 0 && (
+                          <span className={styles.rankChange}>
+                            {formatRankChange(team.rankChange)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className={styles.ownerColumn}>
                     <div className={styles.owner}>{team.owner}</div>
                     <div className={styles.powerScore}>

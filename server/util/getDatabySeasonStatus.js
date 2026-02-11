@@ -6,10 +6,7 @@ const {
   getPlayoffsWinnersBracket,
   getPlayoffsLosersBracket,
 } = require("../services/sleeper"); // adjust path
-const {
-  computeFinalPowerRankings,
-  computeInSeasonPowerRankings,
-} = require("./metricsUtil");
+const { computePowerRankings } = require("./metricsUtil");
 
 const completeSeason = async ({ leagueId, rosters, users, weekSettings }) => {
   try {
@@ -20,39 +17,15 @@ const completeSeason = async ({ leagueId, rosters, users, weekSettings }) => {
     const winnersBracket = await getPlayoffsWinnersBracket(leagueId);
     const losersBracket = await getPlayoffsLosersBracket(leagueId);
 
-    const finalPowerRankings = computeFinalPowerRankings(
-      rosters,
-      users,
-      matchupsByWeek,
-      weekSettings,
-      winnersBracket,
-      losersBracket,
+    const finalPowerRankings = computePowerRankings(
+      rosters, // Array of all fantasy rosters
+      users, // Array of all users
+      matchupsByWeek, // Object of matchups, keyed by week
+      weekSettings, // Your league's week settings
+      winnersBracket, // Playoff winners bracket (champion/runner-up)
+      losersBracket, // Playoff losers bracket (last place)
+      // currentWeek omitted since season is complete
     );
-
-    /* const luckIndex = computeCompleteSeasonLuckIndex(
-      rosters,
-      users,
-      matchupsByWeek,
-    );
-
-    const lineupEfficiency = await computeLineupEfficiency(
-      matchupsByWeek,
-      rosters,
-      users,
-      scoringSettings,
-      rosterPositions,
-      seasonYear,
-      true, // complete season flag
-    ); */
-
-    /* const keyPlayers = await computeCompleteSeasonKeyPlayers(
-      matchupsByWeek,
-      rosters,
-      users,
-      scoringSettings,
-      seasonYear,
-      weekSettings,
-    ); */
 
     return {
       finalPowerRankings,
@@ -152,42 +125,34 @@ const inSeason = async ({
 }) => {
   try {
     const matchupsByWeek = await getAllMatchups(leagueId, weekSettings);
-    const powerRankings = computeInSeasonPowerRankings(
+    const winnersBracket = await getPlayoffsWinnersBracket(leagueId);
+    const losersBracket = await getPlayoffsLosersBracket(leagueId);
+    // Calculate previous week's rankings for trend indicators (if not Week 1)
+    const previousWeekRankings =
+      currentWeek > 1
+        ? computePowerRankings(
+            rosters,
+            users,
+            matchupsByWeek,
+            weekSettings,
+            winnersBracket,
+            losersBracket,
+            currentWeek - 1,
+            null, // no need for trends on previous week calculation
+          )
+        : null;
+
+    // Calculate current week's rankings with trend indicators
+    const powerRankings = computePowerRankings(
       rosters,
       users,
       matchupsByWeek,
+      weekSettings,
+      winnersBracket,
+      losersBracket,
       currentWeek,
+      previousWeekRankings, // pass previous week for trend calculation
     );
-    /*  const luckIndex = computeInSeasonLuckIndex(
-      rosters,
-      users,
-      matchupsByWeek,
-      currentWeek,
-    );
-
-    const lineupEfficiency = await computeInSeasonLineupEfficiency(
-      matchupsByWeek,
-      rosters,
-      users,
-      scoringSettings,
-      seasonYear,
-      currentWeek,
-    ); */
-
-    /* const rollingWindow = 3;
-    const topNPlayers = 5;
-    const totalWeeks = regularSeasonWeeks;
-
-    const keyPlayers = await computeInSeasonKeyPlayers(
-      matchupsByWeek,
-      rosters,
-      users,
-      scoringSettings,
-      currentWeek,
-      totalWeeks,
-      topNPlayers,
-      rollingWindow,
-    ); */
 
     return { powerRankings };
   } catch (e) {

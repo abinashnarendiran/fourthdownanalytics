@@ -70,15 +70,26 @@ const computeTeamProjections = (
   return ranked;
 };
 
-const computeFinalPowerRankings = (
+const computePowerRankings = (
   rosters,
   users,
   matchupsByWeek,
   weekSettings,
   winnersBracket = [],
   losersBracket = [],
+  currentWeek = null, // null = season complete, number = in-season
+  previousWeekRankings = null, // only used when currentWeek is provided
 ) => {
   const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
+
+  // Determine if season is complete or in-progress
+  const isSeasonComplete = currentWeek === null;
+  const isInSeason = currentWeek !== null;
+
+  // Limit aggregation to currentWeek if in-season, otherwise full regular season
+  const maxWeek = isInSeason
+    ? Math.min(currentWeek, regularSeasonWeeks)
+    : regularSeasonWeeks;
 
   const teams = {};
 
@@ -93,7 +104,7 @@ const computeFinalPowerRankings = (
       owner: r.owner?.display_name || "Unknown",
       teamName:
         user?.metadata?.team_name ||
-        (r?.owner?.display_name ? `Team ${r.owner.display_name}` : "Unknown"),
+        (r.owner?.display_name ? `Team ${r.owner.display_name}` : "Unknown"),
       points: 0,
       wins: 0,
       weeklyScores: [],
@@ -104,44 +115,53 @@ const computeFinalPowerRankings = (
   });
 
   // -----------------------------
-  // REGULAR SEASON SCORES
+  // REGULAR SEASON AGGREGATION UP TO maxWeek
   // -----------------------------
   Object.entries(matchupsByWeek).forEach(([week, matchups]) => {
-    if (Number(week) > regularSeasonWeeks) return;
+    const weekNum = Number(week);
+    if (weekNum > maxWeek) return;
 
     matchups.forEach((m) => {
       const team = teams[m.rosterId];
       if (!team) return;
 
-      team.points += m.points;
-      team.weeklyScores.push(m.points);
+      const points = m.points || 0;
+      const oppPoints = m.opponent_points || 0;
 
-      if (m.points > m.opponent_points) team.wins += 1;
+      team.points += points;
+      team.weeklyScores.push(points);
+
+      if (points > oppPoints) team.wins += 1;
     });
   });
 
   // -----------------------------
   // PLAYOFF / BRACKET RESULTS
+  // Only process brackets if season is complete OR currentWeek is past regular season
   // -----------------------------
+  const processBrackets = isSeasonComplete || currentWeek > regularSeasonWeeks;
+
   const getBracketFinal = (bracket) => {
     if (!bracket.length) return null;
     const maxRound = Math.max(...bracket.map((m) => m.r));
     return bracket.find((m) => m.r === maxRound);
   };
 
-  const winnersFinal = getBracketFinal(winnersBracket);
-  if (winnersFinal?.w) teams[winnersFinal.w].championships += 1;
-  if (winnersFinal?.l) teams[winnersFinal.l].runnerUps += 1;
+  if (processBrackets) {
+    const winnersFinal = getBracketFinal(winnersBracket);
+    if (winnersFinal?.w) teams[winnersFinal.w].championships = 1;
+    if (winnersFinal?.l) teams[winnersFinal.l].runnerUps = 1;
 
-  const losersFinal = getBracketFinal(losersBracket);
-  if (losersFinal?.l) teams[losersFinal.l].lastPlace = true;
+    const losersFinal = getBracketFinal(losersBracket);
+    if (losersFinal?.l) teams[losersFinal.l].lastPlace = true;
+  }
 
   // -----------------------------
-  // BUILD CLEAN DASHBOARD RANKINGS
+  // POWER SCORE
   // -----------------------------
   const rankings = Object.values(teams).map((t) => {
-    // Simplified powerScore just based on points, wins, and championship/runner-up/lastPlace
     let powerScore = t.points * 1 + t.wins * 5;
+
     if (t.championships) powerScore += 50;
     if (t.runnerUps) powerScore += 20;
     if (t.lastPlace) powerScore -= 30;
@@ -154,14 +174,44 @@ const computeFinalPowerRankings = (
       wins: t.wins,
       championship: t.championships === 1,
       runnerUp: t.runnerUps === 1,
-      lastPlace: t.lastPlace === 1,
+      lastPlace: t.lastPlace,
       powerScore: Number(powerScore.toFixed(1)),
     };
   });
 
-  // Sort & assign ranks
+  // -----------------------------
+  // SORT & ASSIGN RANKS
+  // -----------------------------
   rankings.sort((a, b) => b.powerScore - a.powerScore);
-  return rankings.map((r, i) => ({ ...r, rank: i + 1 }));
+
+  // -----------------------------
+  // ADD TREND INDICATORS (IN-SEASON ONLY)
+  // -----------------------------
+  return rankings.map((r, i) => {
+    const currentRank = i + 1;
+
+    // Only calculate trend if in-season AND previous rankings provided
+    let trend = "—";
+    let rankChange = 0;
+
+    if (isInSeason && previousWeekRankings) {
+      const prevRank = previousWeekRankings.find(
+        (p) => p.rosterId === r.rosterId,
+      )?.rank;
+
+      if (prevRank) {
+        rankChange = prevRank - currentRank;
+        trend = rankChange > 0 ? "▲" : rankChange < 0 ? "▼" : "—";
+      }
+    }
+
+    return {
+      ...r,
+      rank: currentRank,
+      trend,
+      rankChange,
+    };
+  });
 };
 
 /* const computeCompleteSeasonLuckIndex = (rosters, users, matchupsByWeek) => {
@@ -592,75 +642,6 @@ const computeFinalPowerRankings = (
   });
 }; */
 
-const computeInSeasonPowerRankings = (
-  rosters,
-  users,
-  matchupsByWeek,
-  currentWeek,
-) => {
-  const teams = {};
-
-  // Initialize teams
-  rosters.forEach((r) => {
-    const user = users.find((u) => u.display_name === r.owner?.display_name);
-    teams[r.rosterId] = {
-      rosterId: r.rosterId,
-      owner: r.owner?.display_name || "Unknown",
-      teamName:
-        user?.metadata?.team_name ||
-        `Team ${r.owner?.display_name || "Unknown"}`,
-      points: 0,
-      wins: 0,
-      weeklyScores: [],
-      weightedScore: 0,
-    };
-  });
-
-  // Aggregate weekly stats
-  Object.entries(matchupsByWeek).forEach(([week, matchups]) => {
-    const weekNum = Number(week);
-    if (weekNum > currentWeek) return;
-
-    matchups.forEach((m) => {
-      const team = teams[m.rosterId];
-      if (!team) return;
-
-      const points = m.points || 0;
-      const oppPoints = m.opponent_points || 0;
-
-      // Create a new object instead of mutating the parameter
-      teams[m.rosterId] = {
-        ...team,
-        points: team.points + points,
-        weeklyScores: [...team.weeklyScores, points],
-        wins: team.wins + (points > oppPoints ? 1 : 0),
-      };
-    });
-  });
-
-  // Compute weighted score
-  const maxPoints = Math.max(...Object.values(teams).map((t) => t.points), 1);
-
-  Object.entries(teams).forEach(([rosterId, team]) => {
-    const games = team.weeklyScores.length || 1;
-    const winRatio = team.wins / games;
-    const normalizedPoints = team.points / maxPoints;
-    let weightedScore = winRatio * 0.55 + normalizedPoints * 0.45;
-
-    if (team.wins === 0) weightedScore = normalizedPoints; // handle winless
-
-    // Replace with a new object to avoid mutating function parameter
-    teams[rosterId] = {
-      ...team,
-      weightedScore: Number(weightedScore.toFixed(3)),
-      winRatio: Number(winRatio.toFixed(3)),
-      points: Number(team.points.toFixed(2)),
-    };
-  });
-
-  return Object.values(teams).sort((a, b) => b.weightedScore - a.weightedScore);
-};
-
 /* const computeInSeasonLuckIndex = (
   rosters,
   users,
@@ -1011,12 +992,11 @@ const computeInSeasonPowerRankings = (
  */
 module.exports = {
   computeTeamProjections,
-  computeFinalPowerRankings,
+  computePowerRankings,
   /* computeCompleteSeasonLuckIndex,
   computeLineupEfficiency, */
   calculateFantasyPoints,
   /* computeCompleteSeasonKeyPlayers, */
-  computeInSeasonPowerRankings,
   /* computeInSeasonLuckIndex,
   computeInSeasonLineupEfficiency,
   computeInSeasonKeyPlayers, */

@@ -6,17 +6,20 @@ import PowerRankings from "./PowerRankings";
 // import ChampionshipsSummary from "./championships-summary/ChampionshipsSummary";
 
 export interface PowerRankingsData {
-  rosterId: number;       // Unique team identifier
-  owner: string;          // Owner display name
-  teamName: string;       // Custom team name
-  totalPoints: number;    // Regular season points
-  wins: number;           // Regular season wins
-  championship: boolean;  // Won the league
-  runnerUp: boolean;      // Finished 2nd
-  lastPlace: boolean;     // Finished last
-  powerScore: number;     // Overall score combining all metrics
-  rank: number;           // Rank
+  rosterId: number; // Unique team identifier
+  owner: string; // Owner display name
+  teamName: string; // Custom team name
+  totalPoints: number; // Regular season points
+  wins: number; // Regular season wins
+  championship: boolean; // Won the league
+  runnerUp: boolean; // Finished 2nd
+  lastPlace: boolean; // Finished last
+  powerScore: number; // Overall score combining all metrics
+  rank: number; // Current rank
+  trend: string; // Trend indicator: '▲' | '▼' | '—'
+  rankChange: number; // Numeric change from previous week (positive = moved up)
 }
+
 export interface SeasonData {
   finalPowerRankings: PowerRankingsData[];
 }
@@ -28,7 +31,8 @@ const CompleteSeason: React.FC<CompleteSeasonProps> = ({ seasonData }) => {
   return (
     <div style={{ padding: "2rem" }}>
       <PowerRankings
-        finalPowerRankings={seasonData?.finalPowerRankings || []}
+        powerRankings={seasonData?.finalPowerRankings || []}
+        isInSeason={false}
       />
     </div>
   );

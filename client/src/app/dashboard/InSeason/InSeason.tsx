@@ -1,13 +1,14 @@
 import CurrentWeekSelector from "@/app/components/CurrentWeekSelector";
 import React, { useState } from "react";
-import InSeasonPowerRankings from "./InSeasonPowerRankings";
+import PowerRankings from "../CompleteSeason/PowerRankings";
 
 const InSeason: React.FC<any> = ({ seasonData }) => {
 
   return (
     <div style={{ padding: "2rem" }}>
-      <InSeasonPowerRankings
-        inSeasonRankings={seasonData?.powerRankings || []}
+      <PowerRankings
+        powerRankings={seasonData?.powerRankings || []}
+        isInSeason={true}
       />
     </div>
   );
