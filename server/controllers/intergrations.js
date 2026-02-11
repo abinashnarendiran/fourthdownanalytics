@@ -234,7 +234,6 @@ module.exports.addLeagues = async (req, res) => {
         fantasyPlatform.platformUserId &&
         fantasyPlatform.platformUserId !== platformUserId
       ) {
-        // Account has leagues, reject new account
         return res.status(400).json({
           message: `You already have an account for ${platform}. Only one account allowed.`,
         });
