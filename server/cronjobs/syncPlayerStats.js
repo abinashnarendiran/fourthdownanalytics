@@ -166,7 +166,7 @@ const scheduleSyncSleperPlayersStats = () =>
 
       const nflState = await getNFLState();
 
-      if (nflState.season_type !== "regular") {
+      if (nflState?.season_type === "regular") {
         await syncPlayerWeekStats([parseInt(nflState.season, 10)]);
       }
     } catch (err) {

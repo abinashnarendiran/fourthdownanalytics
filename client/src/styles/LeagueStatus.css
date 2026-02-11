@@ -40,7 +40,10 @@
 }
 
 /* Status badge colors using your theme variables */
-.bg-pre_draft { background: var(--accent, #1F6AE1, 0.1); color: var(--accent); }
+.bg-pre_draft {
+  background: rgba(31, 106, 225, 0.1); /* fallback light blue */
+  color: var(--accent); /* main theme color for text */
+}
 .bg-drafting { background: #FCEFCF; color: #D97706; }
 .bg-in_season { background: #DCFCE7; color: #15803D; }
 .bg-complete { background: #E5E7EB; color: #374151; }

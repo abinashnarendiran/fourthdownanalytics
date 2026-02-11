@@ -147,14 +147,14 @@ module.exports.fetchSleeperAccount = async (req, res) => {
 
           const draftData = await getSleeperDraftSettings(league.league_id);
 
-          if (draftData.length === 1) {
+          if (Array.isArray(draftData) && draftData.length === 1) {
             draftSettings.draftId = draftData[0]?.draft_id || "";
             draftSettings.draftOrder = draftData[0]?.draft_order || {};
             draftSettings.type = draftData[0]?.type || "Unknown";
             draftSettings.rounds = draftData[0]?.settings?.rounds ?? null;
             draftSettings.status = draftData[0]?.status ?? null;
             draftSettings.startTime = draftData[0]?.start_time ?? null;
-            scoringType = draftData[0].metadata?.scoring_type || "Unknown";
+            scoringType = draftData[0]?.metadata?.scoring_type || "Unknown";
           }
 
           return {
@@ -225,22 +225,25 @@ module.exports.addLeagues = async (req, res) => {
 
     // Check for existing account
     let fantasyPlatform = await FantasyPlatforms.findOne({
-      where: { userId, provider: platform, platformUserId }, // Find existing fantasy platform for the user
+      where: { userId, provider: platform }, // Find existing fantasy platform for the user
       include: [Leagues], // Include leagues to check if any exist
     });
 
     if (fantasyPlatform) {
-      if (fantasyPlatform.platformUserId !== platformUserId) {
+      if (
+        fantasyPlatform.platformUserId &&
+        fantasyPlatform.platformUserId !== platformUserId
+      ) {
         // Account has leagues, reject new account
         return res.status(400).json({
           message: `You already have an account for ${platform}. Only one account allowed.`,
         });
       }
       // Account exists but has no leagues → update it with new account info
-      fantasyPlatform.platformUserId = platformUserId; // Update platform user ID
-      fantasyPlatform.username = platformUserName; // Update username
-      fantasyPlatform.displayName = platformDisplayName; // Update display name
-      await fantasyPlatform.save(); // Save updated platform info
+      fantasyPlatform.platformUserId = platformUserId;
+      fantasyPlatform.username = platformUserName;
+      fantasyPlatform.displayName = platformDisplayName;
+      await fantasyPlatform.save();
     } else {
       // No account exists → create new
       fantasyPlatform = await FantasyPlatforms.create({
@@ -412,7 +415,7 @@ module.exports.resyncPlatform = async (req, res) => {
           let scoringType = "Unknown";
           const draftData = await getSleeperDraftSettings(leagueData.leagueId);
 
-          if (draftData.length === 1) {
+          if (Array.isArray(draftData) && draftData.length === 1) {
             draftSettings.draftId = draftData[0]?.draft_id || "";
             draftSettings.draftOrder = draftData[0]?.draft_order || {};
             draftSettings.type = draftData[0]?.type || "Unknown";

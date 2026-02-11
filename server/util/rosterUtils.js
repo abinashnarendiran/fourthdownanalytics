@@ -41,15 +41,21 @@ const enrichRosters = async (rosters) => {
     players:
       r.players === null
         ? null
-        : r.players.map((id) => playerMap[id]).filter(Boolean),
+        : (Array.isArray(r.players) ? r.players : [])
+            .map((id) => playerMap[id])
+            .filter(Boolean),
     reserve:
       r.reserve === null
         ? null
-        : r.reserve.map((id) => playerMap[id]).filter(Boolean),
+        : (Array.isArray(r.reserve) ? r.reserve : [])
+            .map((id) => playerMap[id])
+            .filter(Boolean),
     starters:
       r.starters === null
         ? null
-        : r.starters.map((id) => playerMap[id]).filter(Boolean),
+        : (Array.isArray(r.starters) ? r.starters : [])
+            .map((id) => playerMap[id])
+            .filter(Boolean),
     taxi:
       r.taxi === null
         ? null

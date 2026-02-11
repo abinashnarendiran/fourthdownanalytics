@@ -23,10 +23,10 @@ export const LeagueStatusCard: React.FC<LeagueStatusCardProps> = ({
   const statusLabel = statusEntry?.label ?? "Unknown";
 
   const statusColors: Record<string, string> = {
-    pre_draft: "badge-pre_draft",
-    drafting: "badge-drafting",
-    in_season: "badge-in_season",
-    complete: "badge-complete",
+    pre_draft: "bg-pre_draft",
+    drafting: "bg-drafting",
+    in_season: "bg-in_season",
+    complete: "bg-complete",
   };
 
   const badgeClass =
