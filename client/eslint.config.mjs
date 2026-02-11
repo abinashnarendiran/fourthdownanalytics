@@ -1,30 +1,48 @@
-import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
+import { defineConfig, globalIgnores } from "eslint/config";
+import airbnbBase from "eslint-config-airbnb-base";
+import prettier from "eslint-config-prettier";
 
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  // Override default ignores of eslint-config-next.
+export default defineConfig([
+  ...airbnbBase,
+  ...prettier,
+
+  // Global ignores
   globalIgnores([
-    '.next/**',
-    'out/**',
-    'build/**',
-    'next-env.d.ts',
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "node_modules/**",
   ]),
+
   {
     parserOptions: {
       ecmaVersion: 2021,
-      sourceType: 'module',
+      sourceType: "module",
     },
     rules: {
-      // Indentation rules: 2 spaces
-      indent: ['error', 2],
-      'no-mixed-spaces-and-tabs': 'error',
+      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      "import/prefer-default-export": "off",
+      "no-nested-ternary": "off",
+      "import/order": "off",
+      "no-undef": "error",
 
-      // Optional: enforce single quotes and semicolons
-      quotes: 'off', // disables the rule entirely
-      semi: ['error', 'always'],
+      // Airbnb overrides
+      indent: ["error", 2],
+      "no-mixed-spaces-and-tabs": "error",
+      quotes: "off",
+      semi: ["error", "always"],
+
+      // Highlight unused variables
+      "no-unused-vars": [
+        "warn", // or 'error' if you want red squiggles
+        {
+          vars: "all", // check all variables
+          args: "after-used", // ignore unused args at the start
+          ignoreRestSiblings: true,
+          argsIgnorePattern: "^_", // allow _error style
+        },
+      ],
     },
   },
 ]);
-
-export default eslintConfig;

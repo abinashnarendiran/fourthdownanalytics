@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "../app//ui/globals.css";
+import "../styles/globals.css";
 import { AuthProvider } from "../context/AuthContext";
 
 
@@ -16,7 +16,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Fourth Down Analytics",
-   description: "Analytics for football fantasy fourth downs",
+  description: "Analytics for football fantasy fourth downs",
+  icons: {
+    icon: "/fourth-down-analytics-logo-browser.png",     // your favicon in /public
+  },
 };
 
 export default function RootLayout({

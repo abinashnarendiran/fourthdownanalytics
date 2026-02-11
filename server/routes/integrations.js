@@ -7,7 +7,6 @@ router.post("/sleeper/fetchAccount", controller.fetchSleeperAccount);
 router.post("/addLeagues", controller.addLeagues);
 router.delete("/deleteLeague/:fantasyDbLeagueId", controller.deleteLeague);
 router.delete("/deleteFantasyPlatform/:fantasyPlatformId", controller.deleteFantasyPlatform);
-/* router.post("/fetchLeagues", controller.fetchLeagues); */
 router.post("/resyncPlatform", controller.resyncPlatform);
 
 module.exports = router;
