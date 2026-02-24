@@ -35,8 +35,6 @@ npm install
 # Set up environment variables
 cp .env.example .env
 
-# Run migrations
-npm run migrate
 
 # Start dev server
 npm run dev
