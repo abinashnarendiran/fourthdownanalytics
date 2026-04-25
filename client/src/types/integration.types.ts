@@ -107,3 +107,36 @@ export interface LeagueSelectorProps {
   onGetLeagues?: (leagues: FantasyLeague[]) => void; // callback when leagues are fetched
   disabled?: boolean; // whether the selector is disabled
 }
+
+// ----------------------------
+// Props for LeagueSelector component
+// ----------------------------
+export interface TeamSelectorProps {
+  selected?: Team; // currently selected league
+  label?: string; // label text for the selector
+  className?: string; // wrapper class
+  selectClassName?: string; // select element class
+  onSelect?: (league: Team) => void; // callback when a league is selected
+  onGetTeams?: (teams: Team[]) => void; // callback when teams are fetched
+  disabled?: boolean; // whether the selector is disabled
+  id?: string; // ID to fetch teams for
+}
+
+export interface Team {
+  co_owners: any[]; // array of co-owner objects, can type more strictly if you know the shape
+  owner: {
+    avatar: string;
+    display_name: string;
+    is_bot: boolean;
+    is_owner: boolean;
+    league_id: string;
+    // add other owner fields if needed
+  };
+  owner_id: string; // owner ID from platform
+  rosterId: number; // unique roster ID
+  teamName: string;
+  user_id: string | null; // promoted from settings.user_id
+  default: boolean; // true if this is the default team for platformUserId
+}
+
+

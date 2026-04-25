@@ -1,35 +1,24 @@
 const DRAFTSTATUS = require("../constants/draftType");
 const SCORINGTYPES = require("../constants/scoringTypes");
 const WAIVERTYPES = require("../constants/wavierTypes");
-const {
-  getAllMatchups,
-  getPlayoffsWinnersBracket,
-  getPlayoffsLosersBracket,
-} = require("../services/sleeper"); // adjust path
+const { getSeasonData } = require("./seasonDataCache");
 const { computePowerRankings } = require("./metricsUtil");
 
 const completeSeason = async ({ leagueId, rosters, users, weekSettings }) => {
   try {
-    // For COMPLETE season, set week to total scoring weeks
-    // so that front-end can fetch all matchups
-    const matchupsByWeek = await getAllMatchups(leagueId, weekSettings);
-
-    const winnersBracket = await getPlayoffsWinnersBracket(leagueId);
-    const losersBracket = await getPlayoffsLosersBracket(leagueId);
+    const { matchupsByWeek, winnersBracket, losersBracket } =
+      await getSeasonData(leagueId, weekSettings);
 
     const finalPowerRankings = computePowerRankings(
-      rosters, // Array of all fantasy rosters
-      users, // Array of all users
-      matchupsByWeek, // Object of matchups, keyed by week
-      weekSettings, // Your league's week settings
-      winnersBracket, // Playoff winners bracket (champion/runner-up)
-      losersBracket, // Playoff losers bracket (last place)
-      // currentWeek omitted since season is complete
+      rosters,
+      users,
+      matchupsByWeek,
+      weekSettings,
+      winnersBracket,
+      losersBracket,
     );
 
-    return {
-      finalPowerRankings,
-    };
+    return { finalPowerRankings };
   } catch (e) {
     return null;
   }
@@ -39,7 +28,6 @@ const preDraftSeason = async ({
   leagueId,
   displayName,
   rosters,
-  users,
   config,
   leagueType,
   rosterPositions,
@@ -54,31 +42,17 @@ const preDraftSeason = async ({
     }
     const playoffWeeks = rounds * (config.playoffRoundType === 1 ? 2 : 1);
 
-    // Map teams for dashboard
     const teams = rosters.map((roster) => {
       const owner = roster.owner || {};
       const coOwners = roster.co_owners || [];
 
-      // Find matching user by display_name
-      const user = users.find((u) => u.display_name === owner.display_name);
-
-      // Team name priority:
-      // 1. user.metadata.team_name
-      // 2. roster.metadata.team_name
-      // 3. fallback
-      const teamName =
-        user?.metadata?.team_name ||
-        roster?.metadata?.team_name ||
-        (owner.display_name ? `Team ${owner.display_name}` : "Unknown");
-
       return {
-        teamName,
+        teamName: roster.teamName,
         ownerName: owner.display_name || "Unknown",
         coOwners: coOwners.map((co) => co.display_name || "Unknown"),
       };
     });
 
-    // Build pre-draft data for dashboard
     return {
       leagueId,
       seasonYear,
@@ -92,13 +66,10 @@ const preDraftSeason = async ({
       scoringType: SCORINGTYPES[config.scoringType],
       draftComplete: DRAFTSTATUS[config.draft.status],
       draftPosition: (() => {
-        // Find the roster for this username
         const roster = rosters.find(
           (r) => r.owner.display_name === displayName,
         );
-        if (!roster) return null; // username not found
-
-        // Get draft position from userValues map
+        if (!roster) return null;
         return config?.draft?.draftOrder[roster.owner.user_id] || "N/A";
       })(),
       playoffTeams: config.playoffTeams,
@@ -124,10 +95,9 @@ const inSeason = async ({
   currentWeek,
 }) => {
   try {
-    const matchupsByWeek = await getAllMatchups(leagueId, weekSettings);
-    const winnersBracket = await getPlayoffsWinnersBracket(leagueId);
-    const losersBracket = await getPlayoffsLosersBracket(leagueId);
-    // Calculate previous week's rankings for trend indicators (if not Week 1)
+    const { matchupsByWeek, winnersBracket, losersBracket } =
+      await getSeasonData(leagueId, weekSettings);
+
     const previousWeekRankings =
       currentWeek > 1
         ? computePowerRankings(
@@ -138,11 +108,10 @@ const inSeason = async ({
             winnersBracket,
             losersBracket,
             currentWeek - 1,
-            null, // no need for trends on previous week calculation
+            null,
           )
         : null;
 
-    // Calculate current week's rankings with trend indicators
     const powerRankings = computePowerRankings(
       rosters,
       users,
@@ -151,14 +120,13 @@ const inSeason = async ({
       winnersBracket,
       losersBracket,
       currentWeek,
-      previousWeekRankings, // pass previous week for trend calculation
+      previousWeekRankings,
     );
 
     return { powerRankings };
   } catch (e) {
     return null;
   }
-  // Current Power Rankings
 };
 
 module.exports = { completeSeason, preDraftSeason, inSeason };

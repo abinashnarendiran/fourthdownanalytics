@@ -76,6 +76,10 @@ const attachUsersToRosters = (rosters, users) => {
     rosterId: r.roster_id,
     owner: userMap[r.owner_id] || null,
     co_owners: (r.co_owners || []).map((id) => userMap[id]).filter(Boolean),
+    teamName:
+      userMap[r.owner_id]?.metadata?.team_name ||
+      r.metadata?.team_name ||
+      `Team ${userMap[r.owner_id]?.display_name || r.owner_id || "Unknown"}`,
   }));
 };
 

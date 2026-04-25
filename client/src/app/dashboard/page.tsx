@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import LeagueSelector from "../components/LeagueSelector";
 import { MainLayout } from "../components/MainLayout";
 import { Protected } from "../components/Protected";
 import { FantasyLeague } from "@/types/integration.types";
-import { getSleeperSeasonData, getSleeperLeagueStatus } from "@/api/sleeper";
+import {
+  getSleeperPowerRankingsSeasonData,
+  getSleeperLeagueStatus,
+} from "@/api/sleeper";
 import { LeagueStatusCard } from "../components/LeagueStatusCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import InSeason from "./InSeason/InSeason";
@@ -13,6 +15,7 @@ import CurrentWeekSelector from "../components/CurrentWeekSelector";
 import CompleteSeason from "./CompleteSeason/CompleteSeason";
 import PreDraft from "./PreDraftSeason/PreDraft";
 import { LEAGUE_STATUS } from "@/constants/leagueStatusSleeper";
+import HeaderControls from "../components/HeaderControls";
 
 export const Dashboard = () => {
   const [leagues, setLeagues] = useState<FantasyLeague[]>([]);
@@ -73,7 +76,10 @@ export const Dashboard = () => {
     }
 
     if (!errorStatus) {
-      const data = (await getSleeperSeasonData(id, selectedWeek)) as any;
+      const data = (await getSleeperPowerRankingsSeasonData(
+        id,
+        selectedWeek,
+      )) as any;
       if (data[0] === null) {
         setSeasonData(data[1].league);
       } else {
@@ -91,34 +97,21 @@ export const Dashboard = () => {
     setLoading(false);
   };
 
-  const headerControls = (
-    <div className="flex items-center gap-4">
-      <div className="flex flex-col">
-        <LeagueSelector
-          selected={selectedLeague ?? undefined}
-          onGetLeagues={handleGetLeagues}
-          onSelect={handleSelectLeague}
-          disabled={loading}
-        />
-      </div>
-
-      {
-        leagueMetaData?.leagueStatus === LEAGUE_STATUS.inSeason.value && <div className="flex flex-col">
-          <CurrentWeekSelector
-            currentWeek={selectedWeek}
-            disabled={loading}
-            onSelect={handleSelectWeek}
-          />
-        </div>
-      }
-    </div>
-  );
-
   return (
     <Protected>
       <MainLayout
         title="Dashboard"
-        headerControls={headerControls}>
+        headerControls={
+          <HeaderControls
+            selectedLeague={selectedLeague}
+            handleGetLeagues={handleGetLeagues}
+            handleSelectLeague={handleSelectLeague}
+            selectedWeek={selectedWeek}
+            handleSelectWeek={handleSelectWeek}
+            loading={loading}
+            leagueMetaData={leagueMetaData}
+          />
+        }>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <LoadingSpinner />
@@ -143,16 +136,19 @@ export const Dashboard = () => {
                       Live Data
                     </div>
                   </header>
-                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.complete.value && (
+                  {leagueMetaData.leagueStatus ===
+                    LEAGUE_STATUS.complete.value && (
                     <CompleteSeason seasonData={seasonData} />
                   )}
-                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.preDraft.value && (
+                  {leagueMetaData.leagueStatus ===
+                    LEAGUE_STATUS.preDraft.value && (
                     <PreDraft seasonData={seasonData} />
-                  )} 
+                  )}
 
-                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.inSeason.value && (
-                  <InSeason seasonData={seasonData} />
-                  )} 
+                  {leagueMetaData.leagueStatus ===
+                    LEAGUE_STATUS.inSeason.value && (
+                    <InSeason seasonData={seasonData} />
+                  )}
                 </div>
               ) : (
                 <div className="h-96 border-2 border-dashed border-border rounded-2xl flex items-center justify-center opacity-30 text-lg font-medium">

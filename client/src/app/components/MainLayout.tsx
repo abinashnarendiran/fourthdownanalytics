@@ -60,6 +60,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         <nav className="flex flex-col gap-1 flex-1">
           <Link href="/" className={linkStyle("/")}>Dashboard</Link>
           <Link href="/integrations" className={linkStyle("/integrations")}>Connect Platforms</Link>
+          <Link href="/teamAnalysis" className={linkStyle("/teamAnalysis")}>Team Analysis</Link>
           <Link href="/profile" className={linkStyle("/profile")}>Profile</Link>
         </nav>
       </aside>

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styles from "../../../styles/Dashboard.module.css";
 import { PowerRankingsData } from "./CompleteSeason";
-import PowerRankingsTooltip from "@/app/components/PowerRankingsTooltip";
+import DataTooltip from "@/app/components/DataTooltip";
 
 export interface PowerRankingsProps {
   powerRankings: PowerRankingsData[];
@@ -66,7 +66,7 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
         }
       </p>
       <div className={styles.cards}>
-        <PowerRankingsTooltip stats={statsDescriptions} />
+        <DataTooltip stats={statsDescriptions} />
         {powerRankings
           .sort((a, b) => a.rank - b.rank)
           .map((team) => {
@@ -103,6 +103,7 @@ const PowerRankings: React.FC<PowerRankingsProps> = ({
                     )}
                   </div>
                   <div className={styles.ownerColumn}>
+                    <div className={styles.teamName}>{team.teamName}</div>
                     <div className={styles.owner}>{team.owner}</div>
                     <div className={styles.powerScore}>
                       Power Score: {team.powerScore.toFixed(1)}

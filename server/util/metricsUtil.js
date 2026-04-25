@@ -3,8 +3,22 @@
   PlayerWeekStats,
   Players,
 } = require("../models"); */
+const {
+  PlayerWeekStats,
+  PlayerWeekProjections,
+  Players,
+} = require("../models");
 const { getLineupSlots, getLeagueWeeks } = require("./rosterUtils");
-const { sumTop, calculateFantasyPoints } = require("./statsUtiil");
+const {
+  getPrePlayoffStandings,
+  getFinalPlayoffStandings,
+} = require("./standingsUtils");
+const {
+  sumTop,
+  calculateFantasyPoints,
+  getPlayerPoints,
+} = require("./statsUtiil");
+const { calculateOptimalScore } = require("./teamAnaylsisHelpersUtil");
 
 const computeTeamProjections = (
   rosters,
@@ -97,14 +111,10 @@ const computePowerRankings = (
   // INIT TEAMS
   // -----------------------------
   rosters.forEach((r) => {
-    const user = users.find((u) => u.display_name === r.owner?.display_name);
-
     teams[r.rosterId] = {
       rosterId: r.rosterId,
       owner: r.owner?.display_name || "Unknown",
-      teamName:
-        user?.metadata?.team_name ||
-        (r.owner?.display_name ? `Team ${r.owner.display_name}` : "Unknown"),
+      teamName: r.teamName,
       points: 0,
       wins: 0,
       weeklyScores: [],
@@ -214,790 +224,361 @@ const computePowerRankings = (
   });
 };
 
-/* const computeCompleteSeasonLuckIndex = (rosters, users, matchupsByWeek) => {
-  const teamStats = {};
-
-  Object.entries(matchupsByWeek).forEach(([, weekMatchups]) => {
-    const scores = weekMatchups.map((m) => m.points);
-    const median = scores.sort((a, b) => a - b)[Math.floor(scores.length / 2)];
-
-    weekMatchups.forEach((m) => {
-      if (!teamStats[m.rosterId]) {
-        teamStats[m.rosterId] = { actualWins: 0, expectedWins: 0 };
-      }
-
-      if (m.points >= median) teamStats[m.rosterId].expectedWins += 1;
-      if (m.points > m.opponent_points) teamStats[m.rosterId].actualWins += 1;
-    });
-  });
-
-  return Object.entries(teamStats).map(([rosterId, stats]) => {
-    const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
-
-    // Find the user in the users array by display_name
-    const user = users.find(
-      (u) => u.display_name === ownerObj?.owner?.display_name,
-    );
-
-    return {
-      rosterId,
-      owner: ownerObj?.owner?.display_name || "Unknown",
-      teamName:
-        user?.metadata?.team_name ||
-        (ownerObj?.owner?.display_name
-          ? `Team ${ownerObj?.owner?.display_name}`
-          : "Unknown"),
-      actualWins: stats.actualWins,
-      expectedWins: stats.expectedWins,
-      luck: Number((stats.actualWins - stats.expectedWins).toFixed(2)),
-    };
-  });
-}; */
-
-/* const computeLineupEfficiency = async (
-  matchupsByWeek,
+/**
+ * THE OMNI-ANALYSIS ENGINE
+ * Consolidates Luck, Efficiency, Key Players, and Optimal scoring into one async workflow.
+ */
+const computeTeamAnalysis = async ({
   rosters,
   users,
-  scoringSettings,
-  rosterPositions,
+  matchupsByWeek,
+  weekSettings,
+  winnersBracket,
+  losersBracket,
+  rosterId,
+  week = null, // null = full season
+  compareTeamId = null,
   seasonYear,
-  dashboard,
-) => {
-  const efficiencyMap = {}; // total per roster
-  const weeklyEfficiencyMap = {}; // per roster, per week
+  scoringSettings,
+  playoffTeams,
+}) => {
+  const { regularSeasonWeeks, rosterPositions } = weekSettings;
+  const maxWeek = week !== null ? week : regularSeasonWeeks;
+  const state = week === null ? "complete" : "in_season";
 
-  // Slots from draftSettings
-  const slots = getLineupSlots(rosterPositions);
+  // Data Maps
+  const playerStatsMap = {}; // { rosterId: { playerId: { points, name, pos } } }
+  const luckMap = {}; // { rosterId: { actualWins, expectedWins, weeklyLuck: [] } }
+  const efficiencyMap = {}; // { rosterId: { actualStarters, projectedStarters, totalTeam } }
+  const optimalMap = {}; // { rosterId: [ { week, score } ] }
+  const weeklyPointsMap = {}; // { rosterId: [ { week, points } ] }
+  const leagueWeeklyAverages = {}; // { week: averagePoints }
 
-  // Caches
-
-  const getActualPoints = async (playerId, week) => {
-    if (!playerId) return 0;
-
-    const projection = await PlayerWeekStats.findOne({
-      where: {
-        week,
-        season: seasonYear,
-        source: "sleeper",
-      },
-      include: [
-        {
-          model: Players,
-          where: {
-            sleeperPlayerId: playerId,
-          },
-          required: true,
-        },
-      ],
-      nest: true, // this is correct outside include
-    });
-
-    if (!projection) return 0;
-
-    return calculateFantasyPoints(projection.stats, scoringSettings);
-  };
-
-  const getProjectedPoints = async (playerId, week) => {
-    if (!playerId) return 0;
-
-    const projection = await PlayerWeekProjections.findOne({
-      where: {
-        week,
-        season: seasonYear,
-        source: "sleeper",
-      },
-      include: [
-        {
-          model: Players,
-          where: {
-            sleeperPlayerId: playerId,
-          },
-          required: true,
-        },
-      ],
-      nest: true, // this goes outside of `include`
-    });
-
-    if (!projection) return 0;
-
-    return calculateFantasyPoints(projection.projections, scoringSettings);
-  };
-
-  await Promise.all(
-    Object.entries(matchupsByWeek).map(async ([weekStr, matchups]) => {
-      const week = Number(weekStr);
-
-      await Promise.all(
-        matchups.map(async (team) => {
-          const { rosterId } = team;
-
-          // Init total maps
-          if (efficiencyMap[rosterId] == null) {
-            efficiencyMap[rosterId] = { actual: 0, optimal: 0 };
-          }
-
-          if (weeklyEfficiencyMap[rosterId] == null) {
-            weeklyEfficiencyMap[rosterId] = {};
-          }
-
-          if (weeklyEfficiencyMap[rosterId][week] == null) {
-            weeklyEfficiencyMap[rosterId][week] = { actual: 0, optimal: 0 };
-          }
-
-          const slotsFilled = { ...slots };
-
-          // ---------- ACTUAL ----------
-          await Promise.all(
-            (team.starters || []).map(async (starter) => {
-              let playerId;
-
-              if (typeof starter === "string") playerId = starter;
-              else if (starter?.pid) playerId = starter.pid;
-              else {
-                const key = Object.keys(starter || {}).find((k) =>
-                  k.startsWith("TEAM_"),
-                );
-                playerId = key ? starter[key] : null;
-              }
-
-              if (!playerId) return;
-
-              const actualPoints = await getActualPoints(playerId, week);
-              const points = Number(actualPoints.toFixed(2));
-
-              efficiencyMap[rosterId].actual += points;
-              weeklyEfficiencyMap[rosterId][week].actual += points;
-            }),
-          );
-
-          // ---------- OPTIMAL ----------
-          await Promise.all(
-            (team.starters || []).map(async (starter) => {
-              let playerId;
-
-              if (typeof starter === "string") playerId = starter;
-              else if (starter?.pid) playerId = starter.pid;
-              else {
-                const key = Object.keys(starter || {}).find((k) =>
-                  k.startsWith("TEAM_"),
-                );
-                playerId = key ? starter[key] : null;
-              }
-
-              if (!playerId) return;
-
-              const slotOrder = [
-                "QB",
-                "RB",
-                "WR",
-                "TE",
-                "FLEX",
-                "DL",
-                "LB",
-                "DB",
-                "IDP_FLEX",
-                "K",
-                "DEF",
-              ];
-              const slot = slotOrder.find((s) => slotsFilled[s] > 0);
-
-              if (!slot) return;
-              slotsFilled[slot] -= 1;
-
-              const projectedPoints = await getProjectedPoints(playerId, week);
-              const points = Number(projectedPoints.toFixed(2));
-
-              efficiencyMap[rosterId].optimal += points;
-              weeklyEfficiencyMap[rosterId][week].optimal += points;
-            }),
-          );
-        }),
-      );
-    }),
+  // Collect all unique player IDs used in the entire league
+  const allPids = new Set();
+  Object.values(matchupsByWeek).forEach((wkMatchups) =>
+    wkMatchups.forEach((m) => m.players?.forEach((id) => allPids.add(id))),
   );
 
-  // -------- FINAL OUTPUT --------
-  const totalEfficiency = Object.entries(efficiencyMap)
-    .map(([rosterId, v]) => {
-      const actual = v.actual.toFixed(2);
-      const optimal = v.optimal.toFixed(2);
-      const missedPoints = (optimal - actual).toFixed(2);
-      const efficiency =
-        optimal > 0 ? ((actual / optimal) * 100).toFixed(2) : 0;
+  const [actualRows, projRows] = await Promise.all([
+    PlayerWeekStats.findAll({
+      where: { season: seasonYear, source: "sleeper" },
+      include: [
+        { model: Players, where: { sleeperPlayerId: Array.from(allPids) } },
+      ],
+      nest: true,
+    }),
+    PlayerWeekProjections.findAll({
+      where: { season: seasonYear, source: "sleeper" },
+      include: [
+        { model: Players, where: { sleeperPlayerId: Array.from(allPids) } },
+      ],
+      nest: true,
+    }),
+  ]);
 
-      const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
+  // Build the cache maps
 
-      // Find the user in the users array by display_name
-      const user = users.find(
-        (u) => u.display_name === ownerObj?.owner?.display_name,
+  const actualCache = {};
+  const projCache = {};
+  actualRows.forEach((row) => {
+    // Use a string key like "1234-1" for Player 1234, Week 1
+    const key = `${row.Player.sleeperPlayerId}-${row.week}`;
+    actualCache[key] = row;
+  });
+
+  projRows.forEach((row) => {
+    const key = `${row.Player.sleeperPlayerId}-${row.week}`;
+    projCache[key] = row;
+  });
+
+  // Process Loop
+  const validWeeks = Object.entries(matchupsByWeek).filter(
+    ([w]) => Number(w) <= maxWeek,
+  );
+
+  // eslint-disable-next-line no-restricted-syntax
+  for (const [weekNumStr, weekMatchups] of validWeeks) {
+    const wkNum = Number(weekNumStr);
+
+    // Calculate Weekly Median & Average
+    const weekScores = weekMatchups.map((m) => m.points);
+    const median = [...weekScores].sort((a, b) => a - b)[
+      Math.floor(weekScores.length / 2)
+    ];
+    leagueWeeklyAverages[wkNum] =
+      weekScores.reduce((a, b) => a + b, 0) / weekScores.length;
+
+    // eslint-disable-next-line no-restricted-syntax
+    for (const teamMatchup of weekMatchups) {
+      const {
+        rosterId: tId,
+        points: actualTeamPoints,
+        opponent_points: oppPoints,
+        starters = [],
+        players = [],
+      } = teamMatchup;
+
+      // Initialize maps for this roster
+      if (!playerStatsMap[tId]) playerStatsMap[tId] = {};
+      if (!luckMap[tId])
+        luckMap[tId] = { actualWins: 0, expectedWins: 0, weeklyLuck: [] };
+      if (!efficiencyMap[tId])
+        efficiencyMap[tId] = { actual: 0, projectedStarters: 0, totalTeam: 0 };
+      if (!optimalMap[tId]) optimalMap[tId] = [];
+      if (!weeklyPointsMap[tId]) weeklyPointsMap[tId] = [];
+
+      // A. Points Tracking (Line Chart Data)
+      weeklyPointsMap[tId].push({ week: wkNum, points: actualTeamPoints });
+
+      // B. Luck Tracking (Actual vs Expected based on Median)
+      const expectedWin = actualTeamPoints >= median ? 1 : 0;
+      const actualWin = actualTeamPoints > oppPoints ? 1 : 0;
+      luckMap[tId].actualWins += actualWin;
+      luckMap[tId].expectedWins += expectedWin;
+      luckMap[tId].weeklyLuck.push({
+        week: wkNum,
+        luck: actualWin - expectedWin,
+      });
+
+      // C. Player Stats & Efficiency Tracking
+      const currentWeekPlayerScores = [];
+
+      // eslint-disable-next-line no-restricted-syntax
+      for (const pId of players) {
+        const isStarter = starters.includes(pId);
+        // Pass the cache: This makes these calls hit memory, not the database.
+
+        // eslint-disable-next-line no-await-in-loop
+        const actualData = await getPlayerPoints(
+          pId,
+          wkNum,
+          seasonYear,
+          scoringSettings,
+          "actual",
+          actualCache,
+        );
+        // eslint-disable-next-line no-await-in-loop
+        const projData = await getPlayerPoints(
+          pId,
+          wkNum,
+          seasonYear,
+          scoringSettings,
+          "projected",
+          projCache,
+        );
+
+        if (!playerStatsMap[tId][pId]) {
+          playerStatsMap[tId][pId] = {
+            totalPoints: 0,
+            name: actualData.name,
+            pos: actualData.pos,
+          };
+        }
+
+        playerStatsMap[tId][pId].totalPoints += actualData.points;
+
+        efficiencyMap[tId].totalTeam += actualData.points;
+        if (isStarter) {
+          efficiencyMap[tId].actual += actualData.points;
+          efficiencyMap[tId].projectedStarters += projData.points;
+        }
+
+        currentWeekPlayerScores.push({
+          player_id: pId,
+          position: actualData.pos,
+          points: actualData.points,
+        });
+      }
+
+      // D. Optimal (Best Ball) Calculation
+      const optimalScore = calculateOptimalScore(
+        currentWeekPlayerScores,
+        rosterPositions,
       );
-
-      return {
-        rosterId,
-        owner: ownerObj?.owner?.display_name
-          ? ownerObj?.owner?.display_name
-          : "Unknown",
-        teamName:
-          user?.metadata?.team_name ||
-          (ownerObj?.owner?.display_name
-            ? `Team ${ownerObj?.owner?.display_name}`
-            : "Unknown"),
-        actual,
-        optimal,
-        missedPoints,
-        efficiency, // in %
-      };
-    })
-    .sort((a, b) => b.efficiency - a.efficiency); // sort descending by efficiency
-
-  let weeklyEfficiency;
-
-  if (!dashboard) {
-    weeklyEfficiency = Object.entries(weeklyEfficiencyMap).map(
-      ([rosterId, weeks]) => {
-        const ownerObj = rosters.find(
-          (r) => r.rosterId.toString() === rosterId,
-        );
-
-        const user = users.find(
-          (u) => u.display_name === ownerObj?.owner?.display_name,
-        );
-
-        return {
-          rosterId,
-          owner: ownerObj?.owner?.display_name ?? "Unknown",
-          teamName:
-            user?.metadata?.team_name ||
-            (ownerObj?.owner?.display_name
-              ? `Team ${ownerObj?.owner?.display_name}`
-              : "Unknown"),
-          weeks: Object.entries(weeks).map(([week, v]) => {
-            const actual = Number(v.actual.toFixed(2));
-            const optimal = Number(v.optimal.toFixed(2));
-            const missedPoints = Number((optimal - actual).toFixed(2));
-            const efficiency =
-              optimal > 0 ? Number(((actual / optimal) * 100).toFixed(2)) : 0;
-
-            return {
-              week: Number(week),
-              actual,
-              optimal,
-              missedPoints: missedPoints > 0 ? missedPoints : 0,
-              efficiency, // percentage
-            };
-          }),
-        };
-      },
-    );
+      optimalMap[tId].push({ week: wkNum, score: optimalScore });
+    }
   }
 
-  return dashboard ? totalEfficiency : { totalEfficiency, weeklyEfficiency };
-}; */
-
-/* const computeCompleteSeasonKeyPlayers = async (
-  matchupsByWeek,
-  rosters,
-  users,
-  scoringSettings,
-  seasonYear,
-  weekSettings,
-) => {
-  const playerStatsByRoster = {};
-  const teamTotalPoints = {};
-  const teamPlayoffPoints = {};
-
-  const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
-
-  const getActualPoints = async (playerId, week) => {
-    if (!playerId) return { points: 0, fullName: "Unknown" };
-    const projection = await PlayerWeekStats.findOne({
-      where: { week, season: seasonYear, source: "sleeper" },
-      include: [
-        {
-          model: Players,
-          where: { sleeperPlayerId: playerId },
-          required: true,
-        },
-      ],
-      nest: true,
-    });
-    if (!projection) return { points: 0, fullName: "Unknown" };
-    return {
-      points: calculateFantasyPoints(projection.stats, scoringSettings),
-      fullName: projection.Player?.fullName || "Unknown",
-    };
-  };
-
-  const processWeeks = async (filterFn, seasonType) => {
-    await Promise.all(
-      Object.entries(matchupsByWeek)
-        .filter(([week]) => filterFn(Number(week)))
-        .map(async ([weekStr, matchups]) => {
-          const week = Number(weekStr);
-          await Promise.all(
-            matchups.map(async (team) => {
-              const { rosterId } = team;
-              if (!playerStatsByRoster[rosterId])
-                playerStatsByRoster[rosterId] = {};
-              const teamPointsMap =
-                seasonType === "regular" ? teamTotalPoints : teamPlayoffPoints;
-              if (!teamPointsMap[rosterId]) teamPointsMap[rosterId] = 0;
-
-              await Promise.all(
-                (team.starters || []).map(async (starter) => {
-                  let playerId;
-                  if (typeof starter === "string") playerId = starter;
-                  else if (starter?.pid) playerId = starter.pid;
-                  else {
-                    const key = Object.keys(starter || {}).find((k) =>
-                      k.startsWith("TEAM_"),
-                    );
-                    playerId = key ? starter[key] : null;
-                  }
-                  if (!playerId) return;
-
-                  const { points, fullName } = await getActualPoints(
-                    playerId,
-                    week,
-                  );
-
-                  if (!playerStatsByRoster[rosterId][playerId]) {
-                    playerStatsByRoster[rosterId][playerId] = {
-                      regular: {
-                        totalPoints: 0,
-                        weeksPlayed: 0,
-                        wins: 0,
-                        fullName,
-                      },
-                      playoffs: {
-                        totalPoints: 0,
-                        weeksPlayed: 0,
-                        wins: 0,
-                        fullName,
-                      },
-                    };
-                  }
-
-                  const stats =
-                    playerStatsByRoster[rosterId][playerId][seasonType];
-                  stats.totalPoints += points;
-                  stats.weeksPlayed += 1;
-                  if (team.points > team.opponent_points) stats.wins += 1;
-
-                  teamPointsMap[rosterId] += points;
-                }),
-              );
-            }),
-          );
-        }),
-    );
-  };
-
-  // Process both regular season and playoffs
-  await processWeeks((week) => week <= regularSeasonWeeks, "regular");
-  await processWeeks((week) => week > regularSeasonWeeks, "playoffs");
-
-  // Build final dashboard array
-  return Object.entries(playerStatsByRoster).map(([rosterId, players]) => {
-    const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
-    const user = users.find(
-      (u) => u.display_name === ownerObj?.owner?.display_name,
-    );
-
-    const buildTop5 = (seasonType) => {
-      const teamPoints =
-        seasonType === "regular"
-          ? teamTotalPoints[rosterId]
-          : teamPlayoffPoints[rosterId];
-      return Object.values(players)
-        .map((p) => p[seasonType])
-        .sort((a, b) => b.totalPoints - a.totalPoints)
-        .slice(0, 5)
-        .map((p, idx) => ({
-          rank: idx + 1,
-          fullName: p.fullName,
-          totalPoints: p.totalPoints.toFixed(2),
-          weeksPlayed: p.weeksPlayed,
-          wins: p.wins,
-          contributionPct:
-            teamPoints > 0
-              ? ((p.totalPoints / teamPoints) * 100).toFixed(2)
-              : "0",
-        }));
-    };
-
-    return {
-      rosterId,
-      owner: ownerObj?.owner?.display_name || "Unknown",
-      teamName:
-        user?.metadata?.team_name ||
-        (ownerObj?.owner?.display_name
-          ? `Team ${ownerObj.owner.display_name}`
-          : "Unknown"),
-      keyPlayers: {
-        regularSeason: buildTop5("regular"),
-        playoffs: buildTop5("playoffs"),
-      },
-    };
-  });
-}; */
-
-/* const computeInSeasonLuckIndex = (
-  rosters,
-  users,
-  matchupsByWeek,
-  currentWeek,
-) => {
-  const teamStats = {};
-
-  // Iterate over each week
-  Object.entries(matchupsByWeek).forEach(([weekStr, weekMatchups]) => {
-    const weekNum = Number(weekStr);
-    if (weekNum > currentWeek) return; // skip future weeks
-
-    const scores = weekMatchups.map((m) => m.points);
-    const median = scores.sort((a, b) => a - b)[Math.floor(scores.length / 2)];
-
-    weekMatchups.forEach((m) => {
-      if (!teamStats[m.rosterId]) {
-        teamStats[m.rosterId] = {
-          actualWins: 0,
-          expectedWins: 0,
-          weeklyLuck: [],
-        };
-      }
-
-      const expectedWin = m.points >= median ? 1 : 0;
-      const actualWin = m.points > m.opponent_points ? 1 : 0;
-
-      // Update cumulative wins
-      teamStats[m.rosterId].expectedWins += expectedWin;
-      teamStats[m.rosterId].actualWins += actualWin;
-
-      // Weekly luck
-      teamStats[m.rosterId].weeklyLuck.push(actualWin - expectedWin);
-    });
-  });
-
-  return Object.entries(teamStats).map(([rosterId, stats]) => {
-    const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
-    const user = users.find(
-      (u) => u.display_name === ownerObj?.owner?.display_name,
-    );
-
-    const n = stats.weeklyLuck.length;
-    const luckSum = stats.weeklyLuck.reduce((acc, val) => acc + val, 0);
-    const luckAvg = n ? luckSum / n : 0;
-    const luckVariance = n
-      ? stats.weeklyLuck.reduce((acc, val) => acc + (val - luckAvg) ** 2, 0) / n
-      : 0;
-
-    // 🔹 Season-level luck (standings-based)
-    const seasonLuck = stats.actualWins - stats.expectedWins;
-
-    return {
-      rosterId,
-      owner: ownerObj?.owner?.display_name || "Unknown",
-      teamName:
-        user?.metadata?.team_name ||
-        (ownerObj?.owner?.display_name
-          ? `Team ${ownerObj?.owner?.display_name}`
-          : "Unknown"),
-
-      // Record-based metrics (top-level dashboard)
-      actualWins: stats.actualWins,
-      expectedWins: stats.expectedWins,
-      seasonLuck: Number(seasonLuck.toFixed(2)),
-
-      // In-season luck analytics
-      weeklyLuck: stats.weeklyLuck,
-      luckSum: Number(luckSum.toFixed(2)),
-      luckAvg: Number(luckAvg.toFixed(2)),
-      luckVariance: Number(luckVariance.toFixed(2)),
-    };
-  });
-}; */
-
-/* const computeInSeasonLineupEfficiency = async (
-  matchupsByWeek,
-  rosters,
-  users,
-  scoringSettings,
-  seasonYear,
-  currentWeek,
-) => {
-  const totalsMap = {};
-
-  // ---------- HELPERS ----------
-  const getActualPoints = async (playerId, week) => {
-    if (!playerId) return 0;
-
-    const stat = await PlayerWeekStats.findOne({
-      where: { week, season: seasonYear, source: "sleeper" },
-      include: [
-        {
-          model: Players,
-          where: { sleeperPlayerId: playerId },
-          required: true,
-        },
-      ],
-      nest: true,
-    });
-
-    if (!stat) return 0;
-    return calculateFantasyPoints(stat.stats, scoringSettings);
-  };
-
-  const getProjectedPoints = async (playerId, week) => {
-    if (!playerId) return 0;
-
-    const projection = await PlayerWeekProjections.findOne({
-      where: { week, season: seasonYear, source: "sleeper" },
-      include: [
-        {
-          model: Players,
-          where: { sleeperPlayerId: playerId },
-          required: true,
-        },
-      ],
-      nest: true,
-    });
-
-    if (!projection) return 0;
-    return calculateFantasyPoints(projection.projections, scoringSettings);
-  };
-
-  // ---------- MAIN LOOP ----------
-  await Promise.all(
-    Object.entries(matchupsByWeek).map(async ([weekStr, matchups]) => {
-      const week = Number(weekStr);
-      if (week > currentWeek) return;
-
-      await Promise.all(
-        matchups.map(async (team) => {
-          const { rosterId } = team;
-
-          if (!totalsMap[rosterId]) {
-            totalsMap[rosterId] = {
-              starters: 0,
-              total: 0,
-              projectedStarters: 0,
-              projectedTotal: 0,
-            };
-          }
-
-          // starters
-          await Promise.all(
-            (team.starters || []).map(async (starter) => {
-              const playerId =
-                typeof starter === "string"
-                  ? starter
-                  : starter?.pid ||
-                    Object.keys(starter || {}).find((k) =>
-                      k.startsWith("TEAM_"),
-                    );
-
-              if (!playerId) return;
-
-              const actual = await getActualPoints(playerId, week);
-              const projected = await getProjectedPoints(playerId, week);
-
-              totalsMap[rosterId].starters += actual;
-              totalsMap[rosterId].projectedStarters += projected;
-              totalsMap[rosterId].total += actual;
-              totalsMap[rosterId].projectedTotal += projected;
-            }),
-          );
-
-          // bench
-          await Promise.all(
-            (team.players || []).map(async (playerId) => {
-              if ((team.starters || []).includes(playerId)) return;
-
-              const actual = await getActualPoints(playerId, week);
-              const projected = await getProjectedPoints(playerId, week);
-
-              totalsMap[rosterId].total += actual;
-              totalsMap[rosterId].projectedTotal += projected;
-            }),
-          );
-        }),
-      );
-    }),
-  );
-
-  // ---------- DASHBOARD OUTPUT ----------
-  return Object.entries(totalsMap).map(([rosterId, totals]) => {
-    const roster = rosters.find((r) => r.rosterId.toString() === rosterId);
+  // --- 4. TEAM DATA BUILDER ---
+  const buildTeamData = (id) => {
+    const roster = rosters.find((r) => r.rosterId === id);
     const user = users.find(
       (u) => u.display_name === roster?.owner?.display_name,
     );
 
-    const actualEfficiency =
-      totals.total > 0
-        ? Number(((totals.starters / totals.total) * 100).toFixed(2))
+    const weeklyPoints = weeklyPointsMap[id] || [];
+    const totalActualPoints = weeklyPoints.reduce(
+      (sum, p) => sum + p.points,
+      0,
+    );
+    const avgPoints = weeklyPoints.length
+      ? totalActualPoints / weeklyPoints.length
+      : 0;
+
+    const consistency =
+      weeklyPoints.length > 1
+        ? Math.sqrt(
+            weeklyPoints.reduce(
+              (acc, p) => acc + (p.points - avgPoints) ** 2,
+              0,
+            ) / weeklyPoints.length,
+          )
         : 0;
 
-    const projectedEfficiency =
-      totals.projectedTotal > 0
-        ? Number(
-            ((totals.projectedStarters / totals.projectedTotal) * 100).toFixed(
-              2,
-            ),
+    const lData = luckMap[id];
+    const totalGames = weeklyPoints.length; // Uses the actual games played
+    const actualLosses = totalGames - lData.actualWins;
+    const expectedLosses = totalGames - lData.expectedWins;
+    const luckSum = lData.actualWins - lData.expectedWins;
+    const luckAvg = weeklyPoints.length ? luckSum / weeklyPoints.length : 0;
+    const luckVariance = weeklyPoints.length
+      ? lData.weeklyLuck.reduce(
+          (acc, val) => acc + (val.luck - luckAvg) ** 2,
+          0,
+        ) / weeklyPoints.length
+      : 0;
+
+    const eData = efficiencyMap[id];
+    const totalOptimal = optimalMap[id].reduce((acc, w) => acc + w.score, 0);
+
+    const actualEff =
+      eData.totalTeam > 0 ? (eData.actual / eData.totalTeam) * 100 : 0;
+    const projEff =
+      eData.totalTeam > 0
+        ? (eData.projectedStarters / eData.totalTeam) * 100
+        : 0;
+    const optimalEff =
+      eData.totalTeam > 0 ? (totalOptimal / eData.totalTeam) * 100 : 0;
+
+    const keyPlayers = Object.values(playerStatsMap[id])
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .slice(0, 5)
+      .map((p) => ({
+        name: p.name,
+        pos: p.pos,
+        total: Number(p.totalPoints.toFixed(2)),
+        contribution: Number(
+          ((p.totalPoints / (eData.totalTeam || 1)) * 100).toFixed(2),
+        ),
+      }));
+
+    // Collect every score from every team/week into a flat array
+    const allLeagueScores = Object.values(weeklyPointsMap).flatMap(
+      (teamWeeks) => teamWeeks.map((pw) => pw.points),
+    );
+
+    const leagueAvgPoints = allLeagueScores.length
+      ? allLeagueScores.reduce((a, b) => a + b, 0) / allLeagueScores.length
+      : 0;
+
+    const leagueStdDev =
+      allLeagueScores.length > 1
+        ? Math.sqrt(
+            allLeagueScores.reduce(
+              (acc, pts) => acc + (pts - leagueAvgPoints) ** 2,
+              0,
+            ) / allLeagueScores.length,
           )
         : 0;
 
     return {
-      rosterId: Number(rosterId),
-      owner: roster?.owner?.display_name ?? "Unknown",
+      rosterId: id,
       teamName:
-        user?.metadata?.team_name ||
-        `Team ${roster?.owner?.display_name ?? "Unknown"}`,
+        user?.metadata?.team_name || `Team ${roster?.owner?.display_name}`,
+      owner: roster?.owner?.display_name,
 
-      lineupEfficiency: actualEfficiency,
-      projectedEfficiency,
-      efficiencyDelta: Number(
-        (actualEfficiency - projectedEfficiency).toFixed(2),
-      ),
-    };
-  });
-};
- */
-/* const computeInSeasonKeyPlayers = async (
-  matchupsByWeek,
-  rosters,
-  users,
-  scoringSettings,
-  currentWeek,
-  topNPlayers = 3,
-) => {
-  const playerStatsByRoster = {};
-  const teamTotalPoints = {};
+      // Visual 1: Weekly Points (Line Chart)
+      pointsTrend: weeklyPoints,
 
-  const getActualPoints = async (playerId, week) => {
-    if (!playerId)
-      return { points: 0, fullName: "Unknown", position: "Unknown" };
+      // Visual 2: Expected Wins vs Actual Wins (Bar Comparison)
+      winAnalysis: {
+        actualWins: lData.actualWins,
+        actualLosses,
+        expectedWins: lData.expectedWins,
+        expectedLosses,
+        winDiff: Number(luckSum.toFixed(2)),
+        record: `${lData.actualWins}-${actualLosses}`, // Helpful for UI
+      },
 
-    const stat = await PlayerWeekStats.findOne({
-      where: { week, source: "sleeper" },
-      include: [
-        {
-          model: Players,
-          where: { sleeperPlayerId: playerId },
-          required: true,
-        },
-      ],
-      nest: true,
-    });
+      // Visual 3: Luck Index
+      luck: {
+        luckIndex: Number(luckSum.toFixed(2)),
+        luckVariance: Number(luckVariance.toFixed(2)),
+        weeklyLuckHistory: lData.weeklyLuck,
+      },
 
-    if (!stat) return { points: 0, fullName: "Unknown", position: "Unknown" };
+      // Visual 4: Average Points vs League Average
+      averages: {
+        teamAvg: Number(avgPoints.toFixed(2)),
+        stdDev: Number(leagueStdDev.toFixed(2)),
+        leagueAvg: Number(
+          (
+            Object.values(leagueWeeklyAverages).reduce((a, b) => a + b, 0) /
+            (Object.keys(leagueWeeklyAverages).length || 1)
+          ).toFixed(2),
+        ),
+        weeklyVsLeague: weeklyPoints.map((p) => ({
+          week: p.week,
+          teamPoints: p.points,
+          leagueAvg: Number(leagueWeeklyAverages[p.week].toFixed(2)),
+        })),
+      },
+      consistency: Number(consistency.toFixed(2)),
 
-    return {
-      points: calculateFantasyPoints(stat.stats, scoringSettings),
-      fullName: stat.Player?.fullName || "Unknown",
-      position: stat.Player?.position || "Unknown",
+      efficiency: {
+        actual: Number(actualEff.toFixed(1)),
+        projected: Number(projEff.toFixed(1)),
+        optimal: Number(optimalEff.toFixed(1)),
+      },
+      optimal: {
+        totalBestBall: Number(totalOptimal.toFixed(2)),
+        weeks: optimalMap[id],
+      },
+      keyPlayers: {
+        top5: keyPlayers,
+        top5CombinedContribution: Number(
+          keyPlayers.reduce((s, p) => s + p.contribution, 0).toFixed(2),
+        ),
+      },
     };
   };
 
-  // ---------- AGGREGATE ----------
-  await Promise.all(
-    Object.entries(matchupsByWeek)
-      .filter(([weekStr]) => Number(weekStr) <= currentWeek)
-      .map(async ([weekStr, matchups]) => {
-        const week = Number(weekStr);
+  let preStandings = null;
+  let finalStandings = null;
 
-        await Promise.all(
-          matchups.map(async (team) => {
-            const { rosterId } = team;
+  if (week === null) {
+    preStandings = getPrePlayoffStandings(rosters, users);
 
-            if (!playerStatsByRoster[rosterId])
-              playerStatsByRoster[rosterId] = {};
-            if (!teamTotalPoints[rosterId]) teamTotalPoints[rosterId] = 0;
-
-            await Promise.all(
-              (team.starters || []).map(async (starter) => {
-                const playerId =
-                  typeof starter === "string"
-                    ? starter
-                    : starter?.pid ||
-                      Object.keys(starter || {}).find((k) =>
-                        k.startsWith("TEAM_"),
-                      );
-
-                if (!playerId) return;
-
-                const { points, fullName, position } = await getActualPoints(
-                  playerId,
-                  week,
-                );
-
-                if (!playerStatsByRoster[rosterId][playerId]) {
-                  playerStatsByRoster[rosterId][playerId] = {
-                    totalPoints: 0,
-                    fullName,
-                    position,
-                  };
-                }
-
-                playerStatsByRoster[rosterId][playerId].totalPoints += points;
-                teamTotalPoints[rosterId] += points;
-              }),
-            );
-          }),
-        );
-      }),
-  );
-
-  // ---------- DASHBOARD OUTPUT ----------
-  return Object.entries(playerStatsByRoster).map(([rosterId, players]) => {
-    const ownerObj = rosters.find((r) => r.rosterId.toString() === rosterId);
-    const user = users.find(
-      (u) => u.display_name === ownerObj?.owner?.display_name,
+    finalStandings = getFinalPlayoffStandings(
+      preStandings,
+      winnersBracket,
+      losersBracket,
+      rosters,
+      users,
+      playoffTeams,
     );
+  }
 
-    const topPlayers = Object.values(players)
-      .sort((a, b) => b.totalPoints - a.totalPoints)
-      .slice(0, topNPlayers);
-
-    const topPlayersPoints = topPlayers.reduce(
-      (sum, p) => sum + p.totalPoints,
-      0,
-    );
-
-    const contributionPct =
-      teamTotalPoints[rosterId] > 0
-        ? Number(
-            ((topPlayersPoints / teamTotalPoints[rosterId]) * 100).toFixed(2),
-          )
-        : 0;
-
-    return {
-      rosterId: Number(rosterId),
-      owner: ownerObj?.owner?.display_name ?? "Unknown",
-      teamName:
-        user?.metadata?.team_name ||
-        `Team ${ownerObj?.owner?.display_name ?? "Unknown"}`,
-
-      keyPlayersSummary: {
-        topPlayers: topPlayers.map((p) => ({
-          fullName: p.fullName,
-          position: p.position,
-          totalPoints: Number(p.totalPoints.toFixed(2)),
-        })),
-        topPlayersContributionPct: contributionPct,
-      },
-    };
-  });
+  return {
+    state,
+    week: maxWeek,
+    team: buildTeamData(rosterId),
+    compareTeam: compareTeamId ? buildTeamData(compareTeamId) : null,
+    userPlacement:
+      week !== null
+        ? null
+        : finalStandings.find((s) => s.rosterId === rosterId)?.rank,
+  };
 };
- */
+
 module.exports = {
   computeTeamProjections,
   computePowerRankings,
-  /* computeCompleteSeasonLuckIndex,
-  computeLineupEfficiency, */
   calculateFantasyPoints,
   /* computeCompleteSeasonKeyPlayers, */
   /* computeInSeasonLuckIndex,
   computeInSeasonLineupEfficiency,
   computeInSeasonKeyPlayers, */
+  computeTeamAnalysis,
 };

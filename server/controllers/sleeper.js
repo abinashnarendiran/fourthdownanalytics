@@ -5,17 +5,22 @@ const {
   getSleeperRosters,
   getSleeperUsers,
 } = require("../services/sleeper"); // adjust path
-const {
-  completeSeason,
-  preDraftSeason,
-  inSeason,
-} = require("../util/getDatabySeasonStatus");
 
 const { enrichRosters, attachUsersToRosters } = require("../util/rosterUtils");
+const {
+  completeSeasonTeamAnalysis,
+  inSeasonTeamAnalysis,
+} = require("../util/teamAnalysis");
+const { regularSeasonWeeks } = require("../constants/nflState");
+const {
+  preDraftSeason,
+  completeSeason,
+  inSeason,
+} = require("../util/powerRankings");
 
 module.exports.getSleeperLeagueStatus = async (req, res) => {
   try {
-    const { id } = req.body; // expecting { id } of the league record
+    const { id } = req.params; // expecting { id } of the league record
     if (!id) {
       return res.status(400).json({ message: "id is required" });
     }
@@ -74,12 +79,93 @@ module.exports.getSleeperLeagueStatus = async (req, res) => {
   }
 };
 
-module.exports.getSleeperSeasonData = async (req, res) => {
+module.exports.getSleeperLeagueSeasonTeams = async (req, res) => {
+  const { userId } = req.user;
+  try {
+    const { id } = req.params; // expecting { id } of the league record
+
+    if (!id) {
+      return res.status(400).json({ message: "id is required" });
+    }
+
+    // Find league in your DB by internal ID
+    const leagueRecord = await Leagues.findOne({
+      where: { id },
+      include: [
+        {
+          model: FantasyPlatforms,
+          required: true,
+          where: { userId },
+        },
+      ],
+    });
+
+    if (!leagueRecord) {
+      return res
+        .status(404)
+        .json({ message: "League not found in your system" });
+    }
+
+    const {
+      leagueId,
+      FantasyPlatform: { platformUserId },
+    } = leagueRecord;
+
+    // Fetch league info from Sleeper
+    const sleeperData = await getSleeperByLeagueId(leagueId);
+    if (!sleeperData) {
+      return res.status(404).json({ message: "League not found on Sleeper" });
+    }
+
+    let rosters = await getSleeperRosters(leagueId);
+    if (!rosters) rosters = [];
+    rosters = await enrichRosters(rosters); // ✅ Enrich with DB data
+
+    const users = await getSleeperUsers(leagueId);
+
+    rosters = attachUsersToRosters(rosters, users);
+
+    const desiredRosterFields = [
+      "co_owners",
+      "owner",
+      "owner_id",
+      "rosterId",
+      "teamName",
+      "settings",
+    ];
+    rosters = rosters.map((r) => {
+      const { settings, ...rest } = r;
+
+      const userIdSleeper = r?.owner?.user_id ?? null;
+
+      const base = Object.fromEntries(
+        desiredRosterFields
+          .filter((field) => field !== "settings") // ensure settings isn't included
+          .map((field) => [field, rest[field]]),
+      );
+
+      return {
+        ...base,
+        user_id: userIdSleeper,
+        default: userIdSleeper === platformUserId,
+      };
+    });
+    // Return fantasy-season-only status
+    return res.json({
+      teams: rosters || [], // null unless fantasy season is active
+    });
+  } catch (error) {
+    console.error("Error in getSleeperLeagueSeasonTeams:", error);
+    return res.status(500).json({ message: "Error getting league status" });
+  }
+};
+
+module.exports.getSleeperPowerRankingsSeasonData = async (req, res) => {
   try {
     const { userId } = req.user;
     const { id, week } = req.body; // expecting { id } of the league record
     if (!id) {
-      return res.status(400).json({ message: "id is required" });
+      return res.status(400).json({ message: "League Id is required" });
     }
 
     // Find league in your DB
@@ -138,7 +224,6 @@ module.exports.getSleeperSeasonData = async (req, res) => {
         leagueId,
         displayName: FantasyPlatform.displayName,
         rosters,
-        users,
         config,
         leagueType: type,
         rosterPositions,
@@ -201,6 +286,116 @@ module.exports.getSleeperSeasonData = async (req, res) => {
     return res.status(200).json({
       status: sleeperStatus,
       league: inSeasonData,
+    });
+  } catch (e) {
+    return res.status(500).json({
+      message: "Error fetching Sleeper season data:",
+      error: e.message,
+    });
+  }
+};
+
+module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { id, week, rosterId, seasonStatus } = req.body;
+    if (!id) {
+      return res.status(400).json({ message: "League Id is required" });
+    }
+
+    // Find league in your DB
+    const leagueRecord = await Leagues.findOne({
+      where: { id },
+      include: [
+        {
+          model: FantasyPlatforms,
+          required: true,
+          where: { userId },
+        },
+      ],
+      nest: true,
+    });
+
+    if (!leagueRecord) {
+      return res
+        .status(404)
+        .json({ message: "League not found in your system" });
+    }
+
+    const { leagueId, config, FantasyPlatform, type, seasonYear } =
+      leagueRecord;
+
+    const {
+      rosterPositions,
+      playoffTeams,
+      /* playoffRoundType,
+      playoffWeekStart,
+      playoffTeams, */
+    } = config;
+
+    // Fetch league info from Sleeper
+    const sleeperData = await getSleeperByLeagueId(leagueId);
+    if (!sleeperData) {
+      console.error("Sleeper league not found for leagueId:", leagueId);
+      return res.status(404).json({ message: "League not found on Sleeper" });
+    }
+
+    let rosters = await getSleeperRosters(leagueId);
+    if (!rosters) rosters = [];
+    rosters = await enrichRosters(rosters); // ✅ Enrich with DB data
+
+    const users = await getSleeperUsers(leagueId);
+
+    rosters = attachUsersToRosters(rosters, users);
+
+    const weekSettings = { regularSeasonWeeks, rosterPositions };
+
+    let teamAnalysis = null;
+    if (seasonStatus === "in_season") {
+      teamAnalysis = await inSeasonTeamAnalysis({
+        leagueId,
+        rosters,
+        users,
+        weekSettings,
+        rosterId,
+        currentWeek: week,
+        compareTeamId: null, // or a specific team ID to compare against
+        playoffTeams,
+      });
+    } else if (seasonStatus === "complete") {
+      teamAnalysis = await completeSeasonTeamAnalysis({
+        leagueId,
+        rosters,
+        users,
+        weekSettings,
+        rosterId,
+        compareTeamId: null,
+        seasonYear,
+        scoringSettings: config.scoringSettings,
+        playoffTeams,
+      });
+    } else {
+      const preDraftSeasonData = await preDraftSeason({
+        leagueId,
+        displayName: FantasyPlatform.displayName,
+        rosters,
+        config,
+        leagueType: type,
+        rosterPositions,
+        seasonYear,
+      });
+
+      teamAnalysis = preDraftSeasonData;
+    }
+
+    if (teamAnalysis === null) {
+      return res.status(500).json({
+        message:
+          "We couldn't load the team analysis data right now. Please try again in a moment.",
+      });
+    }
+    return res.status(200).json({
+      teamAnalysis,
     });
   } catch (e) {
     return res.status(500).json({

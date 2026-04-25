@@ -10,9 +10,23 @@ export const getSleeperLeagueStatus = async (
   id: string,
 ): Promise<ApiResult> => {
   try {
-    const response = await api.post("/sleeper/getSleeperLeagueStatus", {
-      id,
-    });
+    const response = await api.get(`/sleeper/getSleeperLeagueStatus/${id}`);
+    return [null, response.data];
+  } catch (err) {
+    const error = err as AxiosError;
+    const e: Error =
+      (error?.response?.data as unknown as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+    return [e, null];
+  }
+};
+
+export const getSleeperLeagueSeasonTeams = async (
+  id: string,
+): Promise<ApiResult> => {
+  try {
+    const response = await api.get(`/sleeper/getSleeperLeagueSeasonTeams/${id}`);
 
     return [null, response.data];
   } catch (err) {
@@ -25,16 +39,18 @@ export const getSleeperLeagueStatus = async (
   }
 };
 
-// Use unknown instead of any
-export const getSleeperSeasonData = async (
+export const getSleeperPowerRankingsSeasonData = async (
   id: string,
   week: number,
 ): Promise<ApiResult> => {
   try {
-    const response = await api.post("/sleeper/getSleeperSeasonData", {
-      id,
-      week,
-    });
+    const response = await api.post(
+      "/sleeper/getSleeperPowerRankingsSeasonData",
+      {
+        id,
+        week,
+      },
+    );
 
     return [null, response.data];
   } catch (err) {
@@ -43,6 +59,35 @@ export const getSleeperSeasonData = async (
       (error?.response?.data as unknown as Error) ||
       (error as unknown as Error) ||
       new Error("Request failed");
+    return [e, null];
+  }
+};
+
+export const getSleeperTeamAnalysisSeasonData = async (
+  id: string,
+  week: number,
+  rosterId: number,
+  seasonStatus: string,
+): Promise<ApiResult> => {
+  try {
+    const response = await api.post(
+      "/sleeper/getSleeperTeamAnalysisSeasonData",
+      {
+        id,
+        week,
+        rosterId,
+        seasonStatus,
+      },
+    );
+
+    return [null, response.data];
+  } catch (err) {
+    const error = err as AxiosError;
+    const e: Error =
+      (error?.response?.data as unknown as Error) ||
+      (error as unknown as Error) ||
+      new Error("Request failed");
+
     return [e, null];
   }
 };

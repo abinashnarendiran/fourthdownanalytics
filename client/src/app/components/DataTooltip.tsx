@@ -7,11 +7,11 @@ interface StatTooltip {
   description: string;
 }
 
-interface PowerRankingsTooltipProps {
+interface DataTooltipProps {
   stats: StatTooltip[];
 }
 
-const PowerRankingsTooltip: React.FC<PowerRankingsTooltipProps> = ({ stats }) => {
+const DataTooltip: React.FC<DataTooltipProps> = ({ stats }) => {
   const [visibleIndex, setVisibleIndex] = useState<number | null>(null);
 
   return (
@@ -38,4 +38,4 @@ const PowerRankingsTooltip: React.FC<PowerRankingsTooltipProps> = ({ stats }) =>
   );
 };
 
-export default PowerRankingsTooltip;
+export default DataTooltip;
