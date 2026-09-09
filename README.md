@@ -36,7 +36,7 @@ npm install
 cp .env.example .env
 
 
-# Start dev server
+# Start dev server and client
 npm run dev
 ```
 
