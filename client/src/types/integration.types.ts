@@ -120,6 +120,9 @@ export interface TeamSelectorProps {
   onGetTeams?: (teams: Team[]) => void; // callback when teams are fetched
   disabled?: boolean; // whether the selector is disabled
   id?: string; // ID to fetch teams for
+  excludeId?: number; // ID to exclude from selection (e.g. current team)
+  defaultEmpty?: boolean; // whether to include a default empty option
+  allowEmpty?: boolean; // whether to allow selecting an empty option
 }
 
 export interface Team {

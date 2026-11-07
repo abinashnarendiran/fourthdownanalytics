@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Team, TeamSelectorProps } from "@/types/integration.types";
 import { getSleeperLeagueSeasonTeams } from "@/api/sleeper";
 
+
 export default function TeamSelector({
   selected,
   label = "Select Team",
@@ -13,37 +14,40 @@ export default function TeamSelector({
   onGetTeams,
   disabled = false,
   id,
+  excludeId,
+  defaultEmpty = false,
+  allowEmpty = false,
 }: TeamSelectorProps) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Always fetch leagues on mount
   useEffect(() => {
     const fetchTeams = async () => {
       try {
-
         if (!id) return;
 
         const data = await getSleeperLeagueSeasonTeams(id);
-
-        let teams: any[] = [];
+        let fetchedTeams: any[] = [];
 
         if (Array.isArray(data) && data[0] === null) {
           const result = data[1] as { teams?: any[] };
-          teams = result?.teams ?? [];
+          fetchedTeams = result?.teams ?? [];
         }
 
-        setTeams(teams);
-        onGetTeams?.(teams);
+        setTeams(fetchedTeams);
+        onGetTeams?.(fetchedTeams);
 
-        // 🔥 NEW LOGIC: Select default or first team
-        if (teams.length > 0) {
-          const defaultTeam = teams.find((team) => team.default === true);
+        if (!defaultEmpty && fetchedTeams.length > 0) {
+          // Strictly cross-reference rosterId
+          const filtered = excludeId 
+            ? fetchedTeams.filter((t) => t.id !== excludeId)
+            : fetchedTeams;
 
-          const teamToSelect = defaultTeam ?? teams[0];
-
-          onSelect?.(teamToSelect);
+          if (filtered.length > 0) {
+            const defaultTeam = filtered.find((t) => t.default === true);
+            onSelect?.(defaultTeam ?? filtered[0]);
+          }
         }
       } catch (err: any) {
         console.error(err);
@@ -54,13 +58,19 @@ export default function TeamSelector({
     };
 
     fetchTeams();
-  }, [id]);
+  }, [id, excludeId, defaultEmpty]);
+
+  // Strictly filter using rosterId
+  const visibleTeams = excludeId 
+    ? teams.filter((t) => t.rosterId !== excludeId)
+    : teams;
 
   return (
     <div className={`w-full max-w-xs ${className}`}>
       <label
         htmlFor="league"
-        className="mb-1 block text-sm font-medium text-foreground">
+        className="mb-1 block text-sm font-medium text-foreground"
+      >
         {label}
       </label>
 
@@ -68,12 +78,17 @@ export default function TeamSelector({
         <select
           id="league"
           disabled={disabled || loading}
-          value={selected?.rosterId ?? 1}
+          value={selected?.rosterId ?? ""}
           onChange={(e) => {
-            const team = teams.find(
-              (l) => l.rosterId === Number(e.target.value),
+            const val = e.target.value;
+            if (val === "") {
+              onSelect?.({} as Team);
+              return;
+            }
+            const foundTeam = teams.find(
+              (l) => l.rosterId === Number(val)
             );
-            if (team) onSelect?.(team); // pass the whole team object
+            if (foundTeam) onSelect?.(foundTeam);
           }}
           className={`w-full appearance-none rounded-md border
             px-3 py-2 text-sm
@@ -84,23 +99,24 @@ export default function TeamSelector({
             transition
             disabled:opacity-60 disabled:cursor-not-allowed
             outline-none
-            ${selectClassName}`}>
+            ${selectClassName}`}
+        >
           {loading && <option>Loading teams...</option>}
 
-          {!loading && teams.length === 0 && (
-            <option
-              value=""
-              disabled>
-              No teams available
+          {!loading && allowEmpty && (
+            <option value="">-- Select a Team to Compare --</option>
+          )}
+
+          {!loading && visibleTeams.length === 0 && (
+            <option value="" disabled>
+              No other teams available
             </option>
           )}
 
           {!loading &&
-            teams.map((team) => (
-              <option
-                key={team.rosterId}
-                value={team.rosterId}>
-                {team.teamName}
+            visibleTeams.map((t) => (
+              <option key={t.rosterId} value={t.rosterId}>
+                {t.teamName}
               </option>
             ))}
         </select>

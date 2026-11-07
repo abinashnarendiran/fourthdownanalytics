@@ -40,6 +40,7 @@ export default function TeamAnalysis() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team>({} as Team);
   const [teamAnalysisData, setTeamAnalysisData] = useState<any>(null);
+  const [comparisonTeam, setComparisonTeam] = useState<Team>({} as Team);
 
   const handleGetLeagues = (data: FantasyLeague[]) => setLeagues(data);
 
@@ -129,6 +130,8 @@ export default function TeamAnalysis() {
           week,
           team.rosterId,
           sleeperStatus[1]?.leagueStatus || "X",
+          null,
+
         )) as [Error | null, { teamAnalysis: any } | null];
 
 
@@ -218,7 +221,7 @@ export default function TeamAnalysis() {
                   </header>
                   {leagueMetaData.leagueStatus ===
                     LEAGUE_STATUS.complete.value && (
-                    <InSeason seasonData={teamAnalysisData} />
+                    <InSeason seasonData={teamAnalysisData} selectedLeague={selectedLeague} week={selectedWeek} selectedTeam={selectedTeam} comparisonTeam={comparisonTeam} setComparisonTeam={setComparisonTeam}/>
                   )}
                   {leagueMetaData.leagueStatus ===
                     LEAGUE_STATUS.preDraft.value && (

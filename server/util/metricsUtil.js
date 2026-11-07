@@ -13,11 +13,7 @@ const {
   getPrePlayoffStandings,
   getFinalPlayoffStandings,
 } = require("./standingsUtils");
-const {
-  sumTop,
-  calculateFantasyPoints,
-  getPlayerPoints,
-} = require("./statsUtiil");
+const { sumTop, getPlayerPoints } = require("./statsUtil");
 const { calculateOptimalScore } = require("./teamAnaylsisHelpersUtil");
 
 const computeTeamProjections = (
@@ -278,11 +274,9 @@ const computeTeamAnalysis = async ({
   ]);
 
   // Build the cache maps
-
   const actualCache = {};
   const projCache = {};
   actualRows.forEach((row) => {
-    // Use a string key like "1234-1" for Player 1234, Week 1
     const key = `${row.Player.sleeperPlayerId}-${row.week}`;
     actualCache[key] = row;
   });
@@ -341,33 +335,41 @@ const computeTeamAnalysis = async ({
         luck: actualWin - expectedWin,
       });
 
-      // C. Player Stats & Efficiency Tracking
+      // C. Player Stats & Efficiency Tracking (Parallelized Lookups)
+      // eslint-disable-next-line no-await-in-loop
+      const playerResults = await Promise.all(
+        players.map(async (pId) => {
+          const [actualData, projData] = await Promise.all([
+            getPlayerPoints(
+              pId,
+              wkNum,
+              seasonYear,
+              scoringSettings,
+              "actual",
+              actualCache,
+            ),
+            getPlayerPoints(
+              pId,
+              wkNum,
+              seasonYear,
+              scoringSettings,
+              "projected",
+              projCache,
+            ),
+          ]);
+          return {
+            pId,
+            actualData,
+            projData,
+            isStarter: starters.includes(pId),
+          };
+        }),
+      );
+
       const currentWeekPlayerScores = [];
 
-      // eslint-disable-next-line no-restricted-syntax
-      for (const pId of players) {
-        const isStarter = starters.includes(pId);
-        // Pass the cache: This makes these calls hit memory, not the database.
-
-        // eslint-disable-next-line no-await-in-loop
-        const actualData = await getPlayerPoints(
-          pId,
-          wkNum,
-          seasonYear,
-          scoringSettings,
-          "actual",
-          actualCache,
-        );
-        // eslint-disable-next-line no-await-in-loop
-        const projData = await getPlayerPoints(
-          pId,
-          wkNum,
-          seasonYear,
-          scoringSettings,
-          "projected",
-          projCache,
-        );
-
+      // Process aggregated values after resolution
+      playerResults.forEach(({ pId, actualData, projData, isStarter }) => {
         if (!playerStatsMap[tId][pId]) {
           playerStatsMap[tId][pId] = {
             totalPoints: 0,
@@ -377,8 +379,8 @@ const computeTeamAnalysis = async ({
         }
 
         playerStatsMap[tId][pId].totalPoints += actualData.points;
-
         efficiencyMap[tId].totalTeam += actualData.points;
+
         if (isStarter) {
           efficiencyMap[tId].actual += actualData.points;
           efficiencyMap[tId].projectedStarters += projData.points;
@@ -389,7 +391,7 @@ const computeTeamAnalysis = async ({
           position: actualData.pos,
           points: actualData.points,
         });
-      }
+      });
 
       // D. Optimal (Best Ball) Calculation
       const optimalScore = calculateOptimalScore(
@@ -427,7 +429,7 @@ const computeTeamAnalysis = async ({
         : 0;
 
     const lData = luckMap[id];
-    const totalGames = weeklyPoints.length; // Uses the actual games played
+    const totalGames = weeklyPoints.length;
     const actualLosses = totalGames - lData.actualWins;
     const expectedLosses = totalGames - lData.expectedWins;
     const luckSum = lData.actualWins - lData.expectedWins;
@@ -463,7 +465,6 @@ const computeTeamAnalysis = async ({
         ),
       }));
 
-    // Collect every score from every team/week into a flat array
     const allLeagueScores = Object.values(weeklyPointsMap).flatMap(
       (teamWeeks) => teamWeeks.map((pw) => pw.points),
     );
@@ -487,28 +488,20 @@ const computeTeamAnalysis = async ({
       teamName:
         user?.metadata?.team_name || `Team ${roster?.owner?.display_name}`,
       owner: roster?.owner?.display_name,
-
-      // Visual 1: Weekly Points (Line Chart)
       pointsTrend: weeklyPoints,
-
-      // Visual 2: Expected Wins vs Actual Wins (Bar Comparison)
       winAnalysis: {
         actualWins: lData.actualWins,
         actualLosses,
         expectedWins: lData.expectedWins,
         expectedLosses,
         winDiff: Number(luckSum.toFixed(2)),
-        record: `${lData.actualWins}-${actualLosses}`, // Helpful for UI
+        record: `${lData.actualWins}-${actualLosses}`,
       },
-
-      // Visual 3: Luck Index
       luck: {
         luckIndex: Number(luckSum.toFixed(2)),
         luckVariance: Number(luckVariance.toFixed(2)),
         weeklyLuckHistory: lData.weeklyLuck,
       },
-
-      // Visual 4: Average Points vs League Average
       averages: {
         teamAvg: Number(avgPoints.toFixed(2)),
         stdDev: Number(leagueStdDev.toFixed(2)),
@@ -525,7 +518,6 @@ const computeTeamAnalysis = async ({
         })),
       },
       consistency: Number(consistency.toFixed(2)),
-
       efficiency: {
         actual: Number(actualEff.toFixed(1)),
         projected: Number(projEff.toFixed(1)),
@@ -575,7 +567,6 @@ const computeTeamAnalysis = async ({
 module.exports = {
   computeTeamProjections,
   computePowerRankings,
-  calculateFantasyPoints,
   /* computeCompleteSeasonKeyPlayers, */
   /* computeInSeasonLuckIndex,
   computeInSeasonLineupEfficiency,

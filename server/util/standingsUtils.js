@@ -76,7 +76,7 @@ const getFinalPlayoffStandings = (
   const winners = processWinnersBracket(winnersBracket);
   const losers = processLosersBracket(losersBracket);
 
-  // split + order correctly
+  // Convert string Object.entries keys to numbers during sorting/mapping
   const winnerOrdered = Object.entries(winners)
     .sort((a, b) => a[1] - b[1])
     .map(([id]) => Number(id));
@@ -87,14 +87,17 @@ const getFinalPlayoffStandings = (
 
   const ordered = [...winnerOrdered, ...loserOrdered];
 
+  // Set now safely contains numbers matching r.roster_id
   const used = new Set(ordered);
 
-  const rest = rosters.map((r) => r.roster_id).filter((id) => !used.has(id));
+  const rest = rosters
+    .map((r) => r.roster_id)
+    .filter((id) => id != null && !used.has(id));
 
   const finalList = [...ordered, ...rest];
 
   return finalList.map((rosterId, i) => {
-    const r = rosters.find((x) => x.roster_id === parseInt(rosterId, 10));
+    const r = rosters.find((x) => x.roster_id === rosterId);
     const user = users.find((u) => u.user_id === r?.owner_id);
 
     return {

@@ -68,6 +68,7 @@ export const getSleeperTeamAnalysisSeasonData = async (
   week: number,
   rosterId: number,
   seasonStatus: string,
+  compareTeam: string | null
 ): Promise<ApiResult> => {
   try {
     const response = await api.post(
@@ -77,6 +78,7 @@ export const getSleeperTeamAnalysisSeasonData = async (
         week,
         rosterId,
         seasonStatus,
+        compareTeam,
       },
     );
 

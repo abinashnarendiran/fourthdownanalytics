@@ -35,34 +35,22 @@ const enrichRosters = async (rosters) => {
     playerMap[player.sleeperPlayerId] = player;
   });
 
-  // 4. Replace IDs with full player objects
-  const enrichedRosters = rosters.map((r) => ({
-    ...r,
-    players:
-      r.players === null
-        ? null
-        : (Array.isArray(r.players) ? r.players : [])
-            .map((id) => playerMap[id])
-            .filter(Boolean),
-    reserve:
-      r.reserve === null
-        ? null
-        : (Array.isArray(r.reserve) ? r.reserve : [])
-            .map((id) => playerMap[id])
-            .filter(Boolean),
-    starters:
-      r.starters === null
-        ? null
-        : (Array.isArray(r.starters) ? r.starters : [])
-            .map((id) => playerMap[id])
-            .filter(Boolean),
-    taxi:
-      r.taxi === null
-        ? null
-        : r.taxi.map((id) => playerMap[id]).filter(Boolean),
-  }));
+  // Helper function to resolve player IDs while preserving null/array checks
+  const mapIds = (ids) =>
+    ids === null
+      ? null
+      : (Array.isArray(ids) ? ids : [])
+          .map((id) => playerMap[id])
+          .filter(Boolean);
 
-  return enrichedRosters;
+  // 4. Replace IDs with full player objects
+  return rosters.map((r) => ({
+    ...r,
+    players: mapIds(r.players),
+    reserve: mapIds(r.reserve),
+    starters: mapIds(r.starters),
+    taxi: mapIds(r.taxi),
+  }));
 };
 
 const attachUsersToRosters = (rosters, users) => {
@@ -93,7 +81,7 @@ const getLineupSlots = (rosterPositions) =>
   );
 // Helper to calculate league weeks
 const getLeagueWeeks = (settings) => {
-  const playoffStart = settings.playoffRoundType || 15;
+  const playoffStart = settings.playoffWeekStart || 15;
   const playoffTeams = settings.playoffTeams || 0;
 
   const regularSeasonWeeks = playoffStart - 1;
