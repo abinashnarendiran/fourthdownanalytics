@@ -1,6 +1,6 @@
 const DRAFTSTATUS = require("../constants/draftType");
 const SCORINGTYPES = require("../constants/scoringTypes");
-const WAIVERTYPES = require("../constants/wavierTypes");
+const WAIVERTYPES = require("../constants/waiverTypes");
 const {
   getAllMatchups,
   getPlayoffsWinnersBracket,

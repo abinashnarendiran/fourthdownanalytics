@@ -4,7 +4,7 @@
   Players,
 } = require("../models"); */
 const { getLineupSlots, getLeagueWeeks } = require("./rosterUtils");
-const { sumTop, calculateFantasyPoints } = require("./statsUtiil");
+const { sumTop, calculateFantasyPoints } = require("./statsUtils");
 
 const computeTeamProjections = (
   rosters,
