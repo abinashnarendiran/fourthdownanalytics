@@ -11,7 +11,7 @@ const { getNFLState } = require("../services/sleeper");
 const {
   getSleeperPlayerRegularSeasonStats,
   getSleeperPlayerProjectedRegularSeasonStats,
-} = require("../services/sleeperStats");
+} = require("../services/sleeper");
 const { regularSeasonWeeks } = require("../constants/nflState");
 
 /**

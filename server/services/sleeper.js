@@ -1,10 +1,55 @@
 const axios = require("axios");
 const { Players } = require("../models");
 const { getLeagueWeeks } = require("../util/rosterUtils");
-const { calculateFantasyPoints } = require("../util/metricsUtil");
+const { calculateFantasyPoints } = require("./analytics/common");
 const { regularSeasonWeeks } = require("../constants/nflState");
 
 const sleeperAPIURL = "https://api.sleeper.app/v1";
+const sleeperStatsAPIURL = "https://api.sleeper.com";
+
+const getSleeperPlayerRegularSeasonStats = async (
+  playerId,
+  season,
+  grouping,
+) => {
+  try {
+    const response = await axios.get(
+      `${sleeperStatsAPIURL}/stats/nfl/player/${playerId}`,
+      {
+        params: {
+          season,
+          season_type: "regular",
+          grouping,
+        },
+      },
+    );
+    return response.data;
+  } catch (err) {
+    return null;
+  }
+};
+
+const getSleeperPlayerProjectedRegularSeasonStats = async (
+  playerId,
+  season,
+  grouping,
+) => {
+  try {
+    const response = await axios.get(
+      `${sleeperStatsAPIURL}/projections/nfl/player/${playerId}`,
+      {
+        params: {
+          season,
+          season_type: "regular",
+          grouping,
+        },
+      },
+    );
+    return response.data;
+  } catch (err) {
+    return null;
+  }
+};
 
 const getSleeperUser = async (userName) => {
   try {
@@ -269,6 +314,8 @@ const getPlayoffsLosersBracket = async (leagueId) => {
 };
 
 module.exports = {
+  getSleeperPlayerProjectedRegularSeasonStats,
+  getSleeperPlayerRegularSeasonStats,
   getSleeperUser,
   getSleeperLeagues,
   getSleeperDraftSettings,

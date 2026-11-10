@@ -5,8 +5,8 @@ const {
   getAllMatchups,
   getPlayoffsWinnersBracket,
   getPlayoffsLosersBracket,
-} = require("../services/sleeper"); // adjust path
-const { computePowerRankings } = require("./metricsUtil");
+} = require("./sleeper");
+const { computePowerRankings } = require("./analytics/powerRankings");
 
 const completeSeason = async ({ leagueId, rosters, users, weekSettings }) => {
   try {

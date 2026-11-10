@@ -9,7 +9,7 @@ const {
   completeSeason,
   preDraftSeason,
   inSeason,
-} = require("../util/getDataBySeasonStatus");
+} = require("../services/seasonDataService");
 
 const { enrichRosters, attachUsersToRosters } = require("../util/rosterUtils");
 
