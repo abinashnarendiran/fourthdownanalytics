@@ -6,6 +6,7 @@ const {
   getSleeperDraftSettings,
   getSleeperByLeagueId,
 } = require("../services/sleeper");
+const { mapSleeperLeague } = require("../util/sleeperLeagueMapper");
 const { Op } = require("sequelize");
 
 module.exports.getUserPlatforms = async (req, res) => {
@@ -121,70 +122,16 @@ module.exports.fetchSleeperAccount = async (req, res) => {
     // Create a Set of existing league IDs for quick lookup
     const existingLeagueIds = new Set(existingLeagues.map((l) => l.leagueId));
 
-    // Map numeric Sleeper type codes to readable strings
-    const leagueTypeMap = {
-      0: "Redraft",
-      1: "Keeper",
-      2: "Dynasty",
-    };
-
     // Process each Sleeper league and build response data
     let leagues = [];
 
     if (sleeperLeagues !== null) {
       leagues = await Promise.all(
         sleeperLeagues.map(async (league) => {
-          // Fetch draft settings
-          const draftSettings = {
-            draftId: "",
-            type: null,
-            rounds: null,
-            status: null,
-            startTime: null,
-            draftOrder: {},
-          };
-          let scoringType = "Unknown";
-
           const draftData = await getSleeperDraftSettings(league.league_id);
-
-          if (Array.isArray(draftData) && draftData.length === 1) {
-            draftSettings.draftId = draftData[0]?.draft_id || "";
-            draftSettings.draftOrder = draftData[0]?.draft_order || {};
-            draftSettings.type = draftData[0]?.type || "Unknown";
-            draftSettings.rounds = draftData[0]?.settings?.rounds ?? null;
-            draftSettings.status = draftData[0]?.status ?? null;
-            draftSettings.startTime = draftData[0]?.start_time ?? null;
-            scoringType = draftData[0]?.metadata?.scoring_type || "Unknown";
-          }
-
+          const leagueDetails = mapSleeperLeague(league, draftData);
           return {
-            leagueId: league.league_id,
-            leagueName: league.name,
-            seasonYear: parseInt(league.season, 10),
-            type:
-              league.settings?.type != null
-                ? leagueTypeMap[league.settings.type]
-                : "Unknown",
-            config: {
-              scoringType,
-              totalRosters: league.total_rosters,
-              rosterPositions: league.roster_positions,
-              scoringSettings: league.scoring_settings,
-              draft: draftSettings,
-              waiver: {
-                type: league.settings?.waiver_type || null,
-                budget: league.settings?.waiver_budget || null,
-              },
-              taxiSlots: league.settings?.taxi_slots || 0,
-              IRSlots: league.settings?.reserve_slots || 0,
-              playoffWeekStart: league.settings.playoff_week_start || 15,
-              playoffType: league.settings.playoff_type,
-              playoffSeedType: league.settings.playoff_seed_type,
-              playoffTeams: league.settings.playoff_teams,
-              playoffRoundType: league.settings.playoff_round_type,
-              tradeDeadline: league.settings.trade_deadline,
-              wavierType: league.settings.waiver_type,
-            },
+            ...leagueDetails,
             added: existingLeagueIds.has(league.league_id),
           };
         }),
@@ -378,12 +325,6 @@ module.exports.resyncPlatform = async (req, res) => {
       await fantasyPlatform.save(); // Save updated platform info
 
       // Loop through leagues and update from Sleeper data
-      const leagueTypeMap = {
-        0: "Redraft",
-        1: "Keeper",
-        2: "Dynasty",
-      };
-
       await Promise.all(
         leagues.map(async (leagueData) => {
           const existingLeague = await Leagues.findOne({
@@ -402,56 +343,14 @@ module.exports.resyncPlatform = async (req, res) => {
           );
           if (!getSleeperLeague) return null; // Skip if Sleeper league not found
 
-          // Fetch draft settings from Sleeper
-          const draftSettings = {
-            draftId: "",
-            type: null,
-            rounds: null,
-            status: null,
-            startTime: null,
-            draftOrder: {},
-          };
-          let scoringType = "Unknown";
           const draftData = await getSleeperDraftSettings(leagueData.leagueId);
-
-          if (Array.isArray(draftData) && draftData.length === 1) {
-            draftSettings.draftId = draftData[0]?.draft_id || "";
-            draftSettings.draftOrder = draftData[0]?.draft_order || {};
-            draftSettings.type = draftData[0]?.type || "Unknown";
-            draftSettings.rounds = draftData[0]?.settings?.rounds ?? null;
-            draftSettings.status = draftData[0]?.status ?? null;
-            draftSettings.startTime = draftData[0]?.start_time ?? null;
-            scoringType = draftData[0]?.metadata?.scoring_type || "Unknown";
-          }
+          const leagueDetails = mapSleeperLeague(getSleeperLeague, draftData);
 
           // Update league info
-          existingLeague.leagueName = getSleeperLeague.name;
-          existingLeague.seasonYear = parseInt(getSleeperLeague.season, 10);
-          existingLeague.type =
-            getSleeperLeague.settings?.type != null
-              ? leagueTypeMap[getSleeperLeague.settings.type]
-              : "Unknown";
-          existingLeague.config = {
-            scoringType,
-            totalRosters: getSleeperLeague.total_rosters,
-            rosterPositions: getSleeperLeague.roster_positions,
-            scoringSettings: getSleeperLeague.scoring_settings,
-            draft: draftSettings,
-            waiver: {
-              type: getSleeperLeague.settings?.waiver_type || null,
-              budget: getSleeperLeague.settings?.waiver_budget || null,
-            },
-            taxiSlots: getSleeperLeague.settings?.taxi_slots || 0,
-            IRSlots: getSleeperLeague.settings?.reserve_slots || 0,
-            playoffWeekStart:
-              getSleeperLeague.settings.playoff_week_start || 15,
-            playoffType: getSleeperLeague.settings.playoff_type,
-            playoffSeedType: getSleeperLeague.settings.playoff_seed_type,
-            playoffTeams: getSleeperLeague.settings.playoff_teams,
-            playoffRoundType: getSleeperLeague.settings.playoff_round_type,
-            tradeDeadline: getSleeperLeague.settings.trade_deadline,
-            wavierType: getSleeperLeague.settings.waiver_type,
-          };
+          existingLeague.leagueName = leagueDetails.leagueName;
+          existingLeague.seasonYear = leagueDetails.seasonYear;
+          existingLeague.type = leagueDetails.type;
+          existingLeague.config = leagueDetails.config;
 
           await existingLeague.save(); // Save updated league info
           return existingLeague;

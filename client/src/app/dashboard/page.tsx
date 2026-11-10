@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import LeagueSelector from "../components/LeagueSelector";
 import { MainLayout } from "../components/MainLayout";
 import { Protected } from "../components/Protected";
-import { FantasyLeague } from "@/types/integration.types";
+import type { FantasyLeague } from "@/types/viewModels/integrations";
 import { getSleeperSeasonData, getSleeperLeagueStatus } from "@/api/sleeper";
 import { LeagueStatusCard } from "../components/LeagueStatusCard";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -13,6 +13,10 @@ import CurrentWeekSelector from "../components/CurrentWeekSelector";
 import CompleteSeason from "./CompleteSeason/CompleteSeason";
 import PreDraft from "./PreDraftSeason/PreDraft";
 import { LEAGUE_STATUS } from "@/constants/leagueStatusSleeper";
+import type {
+  DashboardLeagueStatus,
+  DashboardSeasonData,
+} from "@/types/viewModels/dashboard";
 
 export const Dashboard = () => {
   const [leagues, setLeagues] = useState<FantasyLeague[]>([]);
@@ -23,8 +27,11 @@ export const Dashboard = () => {
   const [dataFound, setDataFound] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
-  const [leagueMetaData, setLeagueMetaData] = useState<any>(null);
-  const [seasonData, setSeasonData] = useState<any>(null);
+  const [leagueMetaData, setLeagueMetaData] =
+    useState<DashboardLeagueStatus | null>(null);
+  const [seasonData, setSeasonData] = useState<DashboardSeasonData | null>(
+    null,
+  );
 
   const handleGetLeagues = (data: FantasyLeague[]) => setLeagues(data);
 
@@ -73,7 +80,7 @@ export const Dashboard = () => {
     }
 
     if (!errorStatus) {
-      const data = (await getSleeperSeasonData(id, selectedWeek)) as any;
+      const data = await getSleeperSeasonData(id, selectedWeek);
       if (data[0] === null) {
         setSeasonData(data[1].league);
       } else {
@@ -143,14 +150,17 @@ export const Dashboard = () => {
                       Live Data
                     </div>
                   </header>
-                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.complete.value && (
+                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.complete.value &&
+                    "finalPowerRankings" in seasonData && (
                     <CompleteSeason seasonData={seasonData} />
                   )}
-                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.preDraft.value && (
+                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.preDraft.value &&
+                    "teams" in seasonData && (
                     <PreDraft seasonData={seasonData} />
                   )} 
 
-                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.inSeason.value && (
+                  {leagueMetaData.leagueStatus === LEAGUE_STATUS.inSeason.value &&
+                    "powerRankings" in seasonData && (
                   <InSeason seasonData={seasonData} />
                   )} 
                 </div>
@@ -175,3 +185,5 @@ export const Dashboard = () => {
     </Protected>
   );
 };
+
+export default Dashboard;

@@ -1,12 +1,14 @@
 const DRAFTSTATUS = require("../constants/draftType");
 const SCORINGTYPES = require("../constants/scoringTypes");
 const WAIVERTYPES = require("../constants/waiverTypes");
+const { getLeagueWeeks } = require("../util/rosterUtils");
 const {
   getAllMatchups,
   getPlayoffsWinnersBracket,
   getPlayoffsLosersBracket,
 } = require("./sleeper");
 const { computePowerRankings } = require("./analytics/powerRankings");
+const { getTeamIdentity } = require("../util/teamIdentity");
 
 const completeSeason = async ({ leagueId, rosters, users, weekSettings }) => {
   try {
@@ -46,13 +48,7 @@ const preDraftSeason = async ({
   seasonYear,
 }) => {
   try {
-    const playoffTeams = config.playoffTeams || 0;
-
-    let rounds = 0;
-    if (playoffTeams > 0) {
-      rounds = Math.ceil(Math.log2(playoffTeams));
-    }
-    const playoffWeeks = rounds * (config.playoffRoundType === 1 ? 2 : 1);
+    const { playoffWeeks, regularSeasonWeeks } = getLeagueWeeks(config);
 
     // Map teams for dashboard
     const teams = rosters.map((roster) => {
@@ -61,19 +57,13 @@ const preDraftSeason = async ({
 
       // Find matching user by display_name
       const user = users.find((u) => u.display_name === owner.display_name);
-
-      // Team name priority:
-      // 1. user.metadata.team_name
-      // 2. roster.metadata.team_name
-      // 3. fallback
-      const teamName =
-        user?.metadata?.team_name ||
-        roster?.metadata?.team_name ||
-        (owner.display_name ? `Team ${owner.display_name}` : "Unknown");
+      const { teamName, owner: ownerName } = getTeamIdentity(roster, user, {
+        useRosterMetadata: true,
+      });
 
       return {
         teamName,
-        ownerName: owner.display_name || "Unknown",
+        ownerName,
         coOwners: coOwners.map((co) => co.display_name || "Unknown"),
       };
     });
@@ -103,7 +93,7 @@ const preDraftSeason = async ({
       })(),
       playoffTeams: config.playoffTeams,
       playoffWeeks,
-      regularSeasonWeeks: config.playoffWeekStart - 1,
+      regularSeasonWeeks,
       tradeDeadlineWeek:
         config.tradeDeadline === 99
           ? "No Trade Deadline"

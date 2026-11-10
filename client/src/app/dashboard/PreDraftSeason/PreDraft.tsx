@@ -3,34 +3,10 @@
 import React, { useState } from "react";
 import styles from "../../../styles/Dashboard.module.css";
 import { format } from "date-fns";
-
-export interface PreDraftTeam {
-  teamName: string;
-  ownerName: string;
-  coOwners: string[];
-}
-
-export interface PreDraftData {
-  leagueId: string;
-  seasonYear: number;
-  leagueType: string; // Added leagueType
-  draftType: string;
-  draftDate: string;
-  scoringType: string;
-  draftComplete: string;
-  draftPosition: number;
-  wavierType: string;
-  rosterPositions: string[];
-  IRSlots: number;
-  playoffTeams: number;
-  playoffWeeks: number;
-  taxiSlots: number;
-  tradeDeadlineWeek: number | string; // can be number or string
-  teams: PreDraftTeam[];
-}
+import type { PreDraftSeasonViewModel } from "@/types/viewModels/dashboard";
 
 export interface PreDraftProps {
-  seasonData: PreDraftData;
+  seasonData: PreDraftSeasonViewModel;
 }
 
 const PreDraft: React.FC<PreDraftProps> = ({ seasonData }) => {

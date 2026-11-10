@@ -8,14 +8,7 @@ import {
   ReactNode
 } from "react";
 import { getMe } from "../api/auth";
-
-// 1️⃣ Define a type for your user (replace `any` with your real user type)
-interface User {
-  userId: number; // match the API
-  email: string;
-  name?: string;
-  // add any other fields your API returns
-}
+import type { User } from "@/types/domain/user";
 
 // 2️⃣ Define context type
 interface AuthContextType {

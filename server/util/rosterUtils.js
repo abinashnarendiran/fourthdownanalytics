@@ -89,7 +89,7 @@ const getLineupSlots = (rosterPositions) =>
   );
 // Helper to calculate league weeks
 const getLeagueWeeks = (settings) => {
-  const playoffStart = settings.playoffRoundType || 15;
+  const playoffStart = settings.playoffWeekStart || 15;
   const playoffTeams = settings.playoffTeams || 0;
 
   const regularSeasonWeeks = playoffStart - 1;

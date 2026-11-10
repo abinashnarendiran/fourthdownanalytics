@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Platform } from "../../types/integration.types";
+import type { Platform } from "@/types/viewModels/integrations";
 
 interface DeletePlatformModalProps {
   platform: Platform;

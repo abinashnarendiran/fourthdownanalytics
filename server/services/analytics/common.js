@@ -1,6 +1,7 @@
 const { getLineupSlots } = require("../../util/rosterUtils");
 const { sumTop, calculateFantasyPoints } = require("../../util/statsUtils");
 
+// Retained for future use; no current server module calls this function.
 const computeTeamProjections = (
   rosters,
   projectedPlayersMap,

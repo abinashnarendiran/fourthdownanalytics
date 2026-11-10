@@ -1,4 +1,5 @@
 const { getLeagueWeeks } = require("../../util/rosterUtils");
+const { getTeamIdentity } = require("../../util/teamIdentity");
 
 const computePowerRankings = (
   rosters,
@@ -21,13 +22,12 @@ const computePowerRankings = (
 
   rosters.forEach((r) => {
     const user = users.find((u) => u.display_name === r.owner?.display_name);
+    const { owner, teamName } = getTeamIdentity(r, user);
 
     teams[r.rosterId] = {
       rosterId: r.rosterId,
-      owner: r.owner?.display_name || "Unknown",
-      teamName:
-        user?.metadata?.team_name ||
-        (r.owner?.display_name ? `Team ${r.owner.display_name}` : "Unknown"),
+      owner,
+      teamName,
       points: 0,
       wins: 0,
       weeklyScores: [],
