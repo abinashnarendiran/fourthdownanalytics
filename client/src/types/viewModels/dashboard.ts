@@ -4,6 +4,14 @@ export interface PowerRankingViewModel {
   teamName: string;
   totalPoints: number;
   wins: number;
+  actualWins: number;
+  expectedWins: number;
+  luckIndex: number;
+  actualStarterPoints: number;
+  optimalStarterPoints: number;
+  lineupEfficiency: number | null;
+  lineupEfficiencyWeeksScored: number;
+  lineupEfficiencyWeeksUnscored: number;
   championship: boolean;
   runnerUp: boolean;
   lastPlace: boolean;

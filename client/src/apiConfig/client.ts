@@ -4,7 +4,8 @@ import type { AxiosResponse } from "axios";
 
 export const api = axios.create({
   baseURL: "http://localhost:5000/api", // your backend URL
-  withCredentials: true // if using cookies/sessions
+  timeout: 30_000,
+  withCredentials: true, // if using cookies/sessions
 });
 
 export type ApiResult<T = unknown> = [Error, null] | [null, T];

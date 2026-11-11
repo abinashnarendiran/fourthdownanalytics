@@ -8,18 +8,154 @@ const {
   getPlayoffsLosersBracket,
 } = require("./sleeper");
 const { computePowerRankings } = require("./analytics/powerRankings");
+const { calculateLuckIndex } = require("./analytics/luckIndex");
+const { calculateLineupEfficiency } = require("./analytics/lineupEfficiency");
 const { getTeamIdentity } = require("../util/teamIdentity");
+const { Players } = require("../models");
+const { success, failure } = require("../util/result");
 
-const completeSeason = async ({ leagueId, rosters, users, weekSettings }) => {
+const getPlayersBySleeperId = async (matchupsByWeek) => {
+  const playerIds = [
+    ...new Set(
+      Object.values(matchupsByWeek)
+        .flat()
+        .flatMap((matchup) => [
+          ...(matchup.players || []),
+          ...(matchup.starters || []),
+        ])
+        .map((playerId) =>
+          playerId === undefined || playerId === null ? null : String(playerId),
+        )
+        .filter((playerId) => playerId && playerId !== "0"),
+    ),
+  ].filter((playerId) => playerId !== "0");
+
+  if (playerIds.length === 0) return success({});
+
+  let players;
+  try {
+    players = await Players.findAll({
+      where: { sleeperPlayerId: playerIds },
+      attributes: [
+        "sleeperPlayerId",
+        "position",
+        "fantasyPositions",
+        "fullName",
+      ],
+      raw: true,
+    });
+  } catch (error) {
+    return failure(error, 500, "PLAYER_METADATA_QUERY_FAILED");
+  }
+  const playersById = Object.fromEntries(
+    players.map((player) => [player.sleeperPlayerId, player]),
+  );
+  const missingPlayerIds = playerIds.filter(
+    (playerId) => !playersById[playerId],
+  );
+
+  if (missingPlayerIds.length) {
+    return failure(
+      `Missing player metadata for Sleeper IDs: ${missingPlayerIds.join(", ")}`,
+      422,
+      "MISSING_PLAYER_METADATA",
+    );
+  }
+
+  return success(playersById);
+};
+
+const addSeasonMetrics = async ({
+  rankings,
+  rosters,
+  matchupsByWeek,
+  rosterPositions,
+  weekSettings,
+  throughWeek,
+}) => {
+  const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
+  const playersResult = await getPlayersBySleeperId(matchupsByWeek);
+  if (playersResult.error) return playersResult;
+  const luckResult = calculateLuckIndex(
+    rosters,
+    matchupsByWeek,
+    regularSeasonWeeks,
+    throughWeek,
+  );
+  if (luckResult.error) return luckResult;
+
+  const efficiencyResult = calculateLineupEfficiency(
+    rosters,
+    matchupsByWeek,
+    rosterPositions,
+    playersResult.data,
+    regularSeasonWeeks,
+    throughWeek,
+  );
+  if (efficiencyResult.error) return efficiencyResult;
+
+  const luckByRosterId = new Map(
+    luckResult.data.map((result) => [String(result.rosterId), result]),
+  );
+  const efficiencyByRosterId = new Map(
+    efficiencyResult.data.map((result) => [String(result.rosterId), result]),
+  );
+
+  const enrichedRankings = [];
+  let metricError = null;
+  rankings.forEach((ranking) => {
+    const luck = luckByRosterId.get(String(ranking.rosterId));
+    const efficiency = efficiencyByRosterId.get(String(ranking.rosterId));
+    if (!luck || !efficiency) {
+      metricError = failure(
+        `Missing metric results for roster ${ranking.rosterId}`,
+        422,
+        "MISSING_METRIC_RESULTS",
+      );
+      return;
+    }
+
+    enrichedRankings.push({
+      ...ranking,
+      actualWins: luck.actualWins,
+      expectedWins: luck.expectedWins,
+      luckIndex: luck.luckIndex,
+      actualStarterPoints: efficiency.actualStarterPoints,
+      optimalStarterPoints: efficiency.optimalStarterPoints,
+      lineupEfficiency: efficiency.lineupEfficiency,
+      lineupEfficiencyWeeksScored: efficiency.weeksScored,
+      lineupEfficiencyWeeksUnscored: efficiency.weeksUnscored,
+    });
+  });
+  if (metricError) return metricError;
+
+  return success(enrichedRankings);
+};
+
+const completeSeason = async ({
+  leagueId,
+  rosters,
+  users,
+  weekSettings,
+  rosterPositions,
+}) => {
   try {
     // For COMPLETE season, set week to total scoring weeks
     // so that front-end can fetch all matchups
-    const matchupsByWeek = await getAllMatchups(leagueId, weekSettings);
+    const [matchupsResult, winnersResult, losersResult] = await Promise.all([
+      getAllMatchups(leagueId, weekSettings),
+      getPlayoffsWinnersBracket(leagueId),
+      getPlayoffsLosersBracket(leagueId),
+    ]);
+    const failedResult = [matchupsResult, winnersResult, losersResult].find(
+      (result) => result.error,
+    );
+    if (failedResult) return failedResult;
+    const matchupsByWeek = matchupsResult.data;
+    const winnersBracket = winnersResult.data;
+    const losersBracket = losersResult.data;
 
-    const winnersBracket = await getPlayoffsWinnersBracket(leagueId);
-    const losersBracket = await getPlayoffsLosersBracket(leagueId);
-
-    const finalPowerRankings = computePowerRankings(
+    const rankingsResult = await computePowerRankings(
       rosters, // Array of all fantasy rosters
       users, // Array of all users
       matchupsByWeek, // Object of matchups, keyed by week
@@ -28,12 +164,22 @@ const completeSeason = async ({ leagueId, rosters, users, weekSettings }) => {
       losersBracket, // Playoff losers bracket (last place)
       // currentWeek omitted since season is complete
     );
+    if (rankingsResult.error) return rankingsResult;
+    const rankings = rankingsResult.data;
+    const finalPowerRankingsResult = await addSeasonMetrics({
+      rankings,
+      rosters,
+      matchupsByWeek,
+      rosterPositions,
+      weekSettings,
+      throughWeek: getLeagueWeeks(weekSettings).regularSeasonWeeks,
+    });
+    if (finalPowerRankingsResult.error) return finalPowerRankingsResult;
 
-    return {
-      finalPowerRankings,
-    };
+    return success({ finalPowerRankings: finalPowerRankingsResult.data });
   } catch (e) {
-    return null;
+    console.error("Failed to build completed-season analytics:", e);
+    return failure(e, 500, "COMPLETED_SEASON_ANALYTICS_FAILED");
   }
 };
 
@@ -69,7 +215,7 @@ const preDraftSeason = async ({
     });
 
     // Build pre-draft data for dashboard
-    return {
+    return success({
       leagueId,
       seasonYear,
       scoringSettings: config.scoringSettings,
@@ -100,9 +246,9 @@ const preDraftSeason = async ({
           : config.tradeDeadline,
       wavierType: WAIVERTYPES[config.wavierType],
       leagueType,
-    };
+    });
   } catch (error) {
-    return null;
+    return failure(error, 500, "PREDRAFT_SEASON_DATA_FAILED");
   }
 };
 
@@ -111,16 +257,36 @@ const inSeason = async ({
   rosters,
   users,
   weekSettings,
+  rosterPositions,
   currentWeek,
 }) => {
   try {
-    const matchupsByWeek = await getAllMatchups(leagueId, weekSettings);
-    const winnersBracket = await getPlayoffsWinnersBracket(leagueId);
-    const losersBracket = await getPlayoffsLosersBracket(leagueId);
+    const matchupsResult = await getAllMatchups(
+      leagueId,
+      weekSettings,
+      currentWeek,
+    );
+    if (matchupsResult.error) return matchupsResult;
+    const matchupsByWeek = matchupsResult.data;
+    const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
+    const [winnersResult, losersResult] =
+      currentWeek > regularSeasonWeeks
+        ? await Promise.all([
+            getPlayoffsWinnersBracket(leagueId),
+            getPlayoffsLosersBracket(leagueId),
+          ])
+        : [success([]), success([])];
+    const failedBracketResult = [winnersResult, losersResult].find(
+      (result) => result.error,
+    );
+    if (failedBracketResult) return failedBracketResult;
+    const winnersBracket = winnersResult.data;
+    const losersBracket = losersResult.data;
+
     // Calculate previous week's rankings for trend indicators (if not Week 1)
-    const previousWeekRankings =
+    const previousWeekRankingsResult =
       currentWeek > 1
-        ? computePowerRankings(
+        ? await computePowerRankings(
             rosters,
             users,
             matchupsByWeek,
@@ -130,10 +296,12 @@ const inSeason = async ({
             currentWeek - 1,
             null, // no need for trends on previous week calculation
           )
-        : null;
+        : success(null);
+    if (previousWeekRankingsResult.error) return previousWeekRankingsResult;
+    const previousWeekRankings = previousWeekRankingsResult.data;
 
     // Calculate current week's rankings with trend indicators
-    const powerRankings = computePowerRankings(
+    const rankingsResult = await computePowerRankings(
       rosters,
       users,
       matchupsByWeek,
@@ -143,10 +311,23 @@ const inSeason = async ({
       currentWeek,
       previousWeekRankings, // pass previous week for trend calculation
     );
+    if (rankingsResult.error) return rankingsResult;
+    const rankings = rankingsResult.data;
 
-    return { powerRankings };
+    const powerRankingsResult = await addSeasonMetrics({
+      rankings,
+      rosters,
+      matchupsByWeek,
+      rosterPositions,
+      weekSettings,
+      throughWeek: currentWeek,
+    });
+    if (powerRankingsResult.error) return powerRankingsResult;
+
+    return success({ powerRankings: powerRankingsResult.data });
   } catch (e) {
-    return null;
+    console.error("Failed to build in-season analytics:", e);
+    return failure(e, 500, "IN_SEASON_ANALYTICS_FAILED");
   }
   // Current Power Rankings
 };

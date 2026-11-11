@@ -13,6 +13,7 @@ const {
   getSleeperPlayerProjectedRegularSeasonStats,
 } = require("../services/sleeper");
 const { regularSeasonWeeks } = require("../constants/nflState");
+const { success, failure } = require("../util/result");
 
 /**
  * Determine which seasons to sync (historical + current)
@@ -31,9 +32,12 @@ const syncPlayerWeekStats = async (seasons) => {
     });
 
     // Get current NFL state to determine current week
-    const nflState = await getNFLState();
+    const nflStateResult = await getNFLState();
+    if (nflStateResult.error) return nflStateResult;
+    const nflState = nflStateResult.data;
     const currentSeason = nflState?.season;
     const currentWeek = nflState?.week;
+    const syncErrors = [];
 
     await Promise.all(
       seasons.map(async (season) => {
@@ -49,11 +53,17 @@ const syncPlayerWeekStats = async (seasons) => {
             /**
              * 1️⃣ Fetch weekly ACTUAL stats
              */
-            const weeklyStats = await getSleeperPlayerRegularSeasonStats(
+            const weeklyStatsResult = await getSleeperPlayerRegularSeasonStats(
               player.sleeperPlayerId,
               season,
               "week",
             );
+            if (weeklyStatsResult.error) {
+              syncErrors.push(
+                `Actual stats for player ${player.sleeperPlayerId}, season ${season}: ${weeklyStatsResult.error.message}`,
+              );
+            }
+            const weeklyStats = weeklyStatsResult.data;
 
             if (weeklyStats) {
               // eslint-disable-next-line no-restricted-syntax
@@ -76,12 +86,18 @@ const syncPlayerWeekStats = async (seasons) => {
             /**
              * 2️⃣ Fetch weekly PROJECTIONS
              */
-            const projectedStats =
+            const projectedStatsResult =
               await getSleeperPlayerProjectedRegularSeasonStats(
                 player.sleeperPlayerId,
                 season,
                 "week",
               );
+            if (projectedStatsResult.error) {
+              syncErrors.push(
+                `Projected stats for player ${player.sleeperPlayerId}, season ${season}: ${projectedStatsResult.error.message}`,
+              );
+            }
+            const projectedStats = projectedStatsResult.data;
 
             if (projectedStats) {
               // eslint-disable-next-line no-restricted-syntax
@@ -107,12 +123,24 @@ const syncPlayerWeekStats = async (seasons) => {
               `Failed player ${player.sleeperPlayerId} season ${season}:`,
               err.message,
             );
+            syncErrors.push(
+              `Player ${player.sleeperPlayerId}, season ${season}: ${err.message}`,
+            );
           }
         }
       }),
     );
+    if (syncErrors.length) {
+      return failure(
+        syncErrors.join("; "),
+        502,
+        "PLAYER_WEEK_STATS_SYNC_PARTIAL",
+      );
+    }
+    return success({ syncedSeasons: seasons });
   } catch (err) {
     console.error("PlayerWeekStats sync failed:", err);
+    return failure(err, 500, "PLAYER_WEEK_STATS_SYNC_FAILED");
   }
 };
 
@@ -121,29 +149,37 @@ const syncPlayerWeekStats = async (seasons) => {
  * @param {number} yearsBack - number of years to backfill
  */
 const backfillHistoricalStatsOnce = async () => {
-  const jobName = "historicalStatsBackfill";
+  try {
+    const jobName = "historicalStatsBackfill";
 
-  // Check if already done
-  const job = await Jobs.findOne({ where: { name: jobName } });
-  if (job?.done) {
-    return;
+    // Check if already done
+    const job = await Jobs.findOne({ where: { name: jobName } });
+    if (job?.done) {
+      return success({ skipped: true, reason: "already completed" });
+    }
+
+    // Run historical backfill
+    const nflStateResult = await getNFLState();
+    if (nflStateResult.error) return nflStateResult;
+    const nflState = nflStateResult.data;
+
+    // Only include regular seasons
+    const seasons = [parseInt(nflState.season, 10)];
+
+    // Call syncPlayerWeekStats
+    const syncResult = await syncPlayerWeekStats(seasons);
+    if (syncResult.error) return syncResult;
+
+    // Mark as done
+    await Jobs.upsert({
+      name: jobName,
+      done: true,
+      completedAt: new Date(),
+    });
+    return success({ backfilledSeasons: seasons });
+  } catch (error) {
+    return failure(error, 500, "HISTORICAL_STATS_BACKFILL_FAILED");
   }
-
-  // Run historical backfill
-  const nflState = await getNFLState();
-
-  // Only include regular seasons
-  const seasons = [parseInt(nflState.season, 10)];
-
-  // Call syncPlayerWeekStats
-  await syncPlayerWeekStats(seasons);
-
-  // Mark as done
-  await Jobs.upsert({
-    name: jobName,
-    done: true,
-    completedAt: new Date(),
-  });
 };
 
 /**
@@ -158,16 +194,36 @@ const scheduleSyncSleperPlayersStats = () =>
        * 1. Run historical backfill ONCE
        * Safe to call every day — Jobs table prevents re-run
        */
-      await backfillHistoricalStatsOnce();
+      const backfillResult = await backfillHistoricalStatsOnce();
+      if (backfillResult.error) {
+        console.error(
+          "Historical player stats backfill failed",
+          backfillResult.error,
+        );
+        return;
+      }
 
       /**
        * 2️. Run daily sync for current season only
        */
 
-      const nflState = await getNFLState();
+      const nflStateResult = await getNFLState();
+      if (nflStateResult.error) {
+        console.error(
+          "Unable to read NFL state for player sync",
+          nflStateResult.error,
+        );
+        return;
+      }
+      const nflState = nflStateResult.data;
 
       if (nflState?.season_type === "regular") {
-        await syncPlayerWeekStats([parseInt(nflState.season, 10)]);
+        const syncResult = await syncPlayerWeekStats([
+          parseInt(nflState.season, 10),
+        ]);
+        if (syncResult.error) {
+          console.error("Current player stats sync failed", syncResult.error);
+        }
       }
     } catch (err) {
       console.error("❌ Cron Job failed:", err.message);

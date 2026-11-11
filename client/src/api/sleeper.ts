@@ -1,5 +1,6 @@
 import { api, mapApiResult, request } from "../apiConfig/client";
 import type {
+  PowerRankingDTO,
   SleeperLeagueStatusDTO,
   SleeperSeasonDataResponseDTO,
 } from "@/types/api/sleeper";
@@ -23,7 +24,7 @@ export const getSleeperLeagueStatus = async (id: string) => {
   );
 };
 
-const mapRankings = (rankings: PowerRankingViewModel[]) =>
+const mapRankings = (rankings: PowerRankingDTO[]): PowerRankingViewModel[] =>
   rankings.map((ranking) => ({ ...ranking }));
 
 const mapSeasonData = (

@@ -107,9 +107,10 @@ test("slot assignment finds a maximum-score eligible lineup and excludes reserve
     (player) => player.points,
   );
 
-  assert.equal(result.totalPoints, 35);
+  assert.equal(result.error, null);
+  assert.equal(result.data.totalPoints, 35);
   assert.deepEqual(
-    result.assignments.map(({ player, slot }) => [
+    result.data.assignments.map(({ player, slot }) => [
       player.sleeperPlayerId,
       slot,
     ]),
@@ -118,8 +119,8 @@ test("slot assignment finds a maximum-score eligible lineup and excludes reserve
       ["te", "FLEX"],
     ],
   );
-  assert.deepEqual(result.unfilledSlots, []);
-  assert.deepEqual(result.unassignedPlayers, [rb]);
+  assert.deepEqual(result.data.unfilledSlots, []);
+  assert.deepEqual(result.data.unassignedPlayers, [rb]);
 });
 
 test("SUPER_FLEX can reassign a quarterback to maximize the full lineup", () => {
@@ -135,9 +136,10 @@ test("SUPER_FLEX can reassign a quarterback to maximize the full lineup", () => 
     (player) => player.points,
   );
 
-  assert.equal(result.totalPoints, 78);
-  assert.equal(result.assignments.length, 3);
-  assert.deepEqual(result.unfilledSlots, []);
+  assert.equal(result.error, null);
+  assert.equal(result.data.totalPoints, 78);
+  assert.equal(result.data.assignments.length, 3);
+  assert.deepEqual(result.data.unfilledSlots, []);
 });
 
 test("team projections remain exported for future use", () => {

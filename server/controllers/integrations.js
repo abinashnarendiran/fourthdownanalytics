@@ -7,6 +7,7 @@ const {
   getSleeperByLeagueId,
 } = require("../services/sleeper");
 const { mapSleeperLeague } = require("../util/sleeperLeagueMapper");
+const { sendResultError } = require("../util/result");
 const { Op } = require("sequelize");
 
 module.exports.getUserPlatforms = async (req, res) => {
@@ -86,7 +87,11 @@ module.exports.fetchSleeperAccount = async (req, res) => {
     const { userName, year } = req.body;
 
     // Get Sleeper Account with Leagues
-    const sleeperAccount = await getSleeperUser(userName);
+    const sleeperAccountResult = await getSleeperUser(userName);
+    if (sleeperAccountResult.error) {
+      return sendResultError(res, sleeperAccountResult.error);
+    }
+    const sleeperAccount = sleeperAccountResult.data;
 
     if (!sleeperAccount) {
       return res.status(404).json({ message: "Sleeper user not found" });
@@ -99,10 +104,14 @@ module.exports.fetchSleeperAccount = async (req, res) => {
     };
 
     // Fetch all leagues for this user from Sleeper API
-    const sleeperLeagues = await getSleeperLeagues(
+    const sleeperLeaguesResult = await getSleeperLeagues(
       sleeperUser.platformUserId,
       year,
     );
+    if (sleeperLeaguesResult.error) {
+      return sendResultError(res, sleeperLeaguesResult.error);
+    }
+    const sleeperLeagues = sleeperLeaguesResult.data;
 
     // Query database for existing leagues already added by this user
     const existingLeagues = await Leagues.findAll({
@@ -125,17 +134,23 @@ module.exports.fetchSleeperAccount = async (req, res) => {
     // Process each Sleeper league and build response data
     let leagues = [];
 
-    if (sleeperLeagues !== null) {
-      leagues = await Promise.all(
+    if (sleeperLeagues) {
+      const leagueResults = await Promise.all(
         sleeperLeagues.map(async (league) => {
-          const draftData = await getSleeperDraftSettings(league.league_id);
-          const leagueDetails = mapSleeperLeague(league, draftData);
+          const draftResult = await getSleeperDraftSettings(league.league_id);
+          if (draftResult.error) return draftResult;
+          const leagueDetails = mapSleeperLeague(league, draftResult.data);
           return {
             ...leagueDetails,
             added: existingLeagueIds.has(league.league_id),
           };
         }),
       );
+      const failedLeagueResult = leagueResults.find((result) => result?.error);
+      if (failedLeagueResult) {
+        return sendResultError(res, failedLeagueResult.error);
+      }
+      leagues = leagueResults;
     }
 
     // Attach leagues and platform info to response
@@ -313,7 +328,11 @@ module.exports.resyncPlatform = async (req, res) => {
 
     // Use Sleeper API to update account and leagues if the platform is Sleeper
     if (platform === ENABLED_PLATFORMS.SLEEPER) {
-      const sleeperAccount = await getSleeperUser(username); // Fetch Sleeper account details
+      const sleeperAccountResult = await getSleeperUser(username);
+      if (sleeperAccountResult.error) {
+        return sendResultError(res, sleeperAccountResult.error);
+      }
+      const sleeperAccount = sleeperAccountResult.data;
       if (!sleeperAccount) {
         return res.status(404).json({ message: "Sleeper user not found" }); // Handle case where Sleeper user is not found
       }
@@ -325,7 +344,7 @@ module.exports.resyncPlatform = async (req, res) => {
       await fantasyPlatform.save(); // Save updated platform info
 
       // Loop through leagues and update from Sleeper data
-      await Promise.all(
+      const leagueResults = await Promise.all(
         leagues.map(async (leagueData) => {
           const existingLeague = await Leagues.findOne({
             where: {
@@ -338,13 +357,21 @@ module.exports.resyncPlatform = async (req, res) => {
           if (!existingLeague) return null; // Skip if league doesn't exist
 
           // Fetch latest league details from Sleeper
-          const getSleeperLeague = await getSleeperByLeagueId(
+          const sleeperLeagueResult = await getSleeperByLeagueId(
             leagueData.leagueId,
           );
-          if (!getSleeperLeague) return null; // Skip if Sleeper league not found
+          if (sleeperLeagueResult.error) return sleeperLeagueResult;
+          const sleeperLeague = sleeperLeagueResult.data;
+          if (!sleeperLeague) return null;
 
-          const draftData = await getSleeperDraftSettings(leagueData.leagueId);
-          const leagueDetails = mapSleeperLeague(getSleeperLeague, draftData);
+          const draftResult = await getSleeperDraftSettings(
+            leagueData.leagueId,
+          );
+          if (draftResult.error) return draftResult;
+          const leagueDetails = mapSleeperLeague(
+            sleeperLeague,
+            draftResult.data,
+          );
 
           // Update league info
           existingLeague.leagueName = leagueDetails.leagueName;
@@ -356,6 +383,10 @@ module.exports.resyncPlatform = async (req, res) => {
           return existingLeague;
         }),
       );
+      const failedLeagueResult = leagueResults.find((result) => result?.error);
+      if (failedLeagueResult) {
+        return sendResultError(res, failedLeagueResult.error);
+      }
     }
 
     // For simplicity, just returning success for now
