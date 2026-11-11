@@ -2,8 +2,9 @@ import React from "react";
 import LeagueSelector from "./LeagueSelector";
 import CurrentWeekSelector from "./CurrentWeekSelector";
 import { LEAGUE_STATUS } from "@/constants/leagueStatusSleeper";
-import { FantasyLeague } from "@/types/integration.types";
+import type { FantasyLeague } from "@/types/viewModels/integrations";
 import TeamSelector from "./TeamSelector";
+import type { TeamRosterOption } from "@/types/viewModels/teamAnalysis";
 
 interface HeaderControlsProps {
   selectedLeague: FantasyLeague | null;
@@ -16,9 +17,9 @@ interface HeaderControlsProps {
     leagueStatus: string;
   } | null;
   chooseTeam?: boolean; // Optional prop to conditionally show team selector
-  setTeams?: (teams: any[]) => void; // Function to set teams in parent component
-  selectedTeam?: any; // Currently selected team
-  setSelectedTeam?: (team: any) => void; // Function to set selected team in parent component
+  setTeams?: (teams: TeamRosterOption[]) => void;
+  selectedTeam?: TeamRosterOption | null;
+  setSelectedTeam?: (team: TeamRosterOption) => void;
 }
 
 const HeaderControls: React.FC<HeaderControlsProps> = ({
@@ -57,11 +58,12 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
       {chooseTeam && selectedLeague?.id && (
         <div className="flex flex-col">
           <TeamSelector
-              onGetTeams={setTeams}
-              id={selectedLeague.id}
-              selected={selectedTeam}
-              onSelect={setSelectedTeam}
-            />
+            onGetTeams={setTeams}
+            id={selectedLeague.id}
+            selected={selectedTeam}
+            onSelect={setSelectedTeam}
+            disabled={loading}
+          />
         </div>
       )}
     </div>

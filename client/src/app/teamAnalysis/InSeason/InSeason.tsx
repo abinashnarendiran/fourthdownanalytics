@@ -1,18 +1,15 @@
-import React, { useState } from "react";
+import React from "react";
 import TeamAnalysisView from "../teamAnalysis";
+import type { TeamAnalysisData } from "@/types/viewModels/teamAnalysis";
 
-const InSeason: React.FC<any> = ({ seasonData, selectedLeague, selectedTeam, selectedWeek, comparisonTeam, setComparisonTeam }) => {
+interface InSeasonProps {
+  data: TeamAnalysisData;
+}
+
+const InSeason: React.FC<InSeasonProps> = ({ data }) => {
   return (
-    <div style={{ padding: "2rem" }}>
-      <TeamAnalysisView
-        data={seasonData || {}}
-        selectedLeague={selectedLeague || null}
-        selectedTeam={selectedTeam}
-        selectedWeek={selectedWeek}
-        comparisonTeam={comparisonTeam}
-        setComparisonTeam={setComparisonTeam}
-
-      />
+    <div>
+      <TeamAnalysisView data={data} />
     </div>
   );
 };

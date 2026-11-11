@@ -1,10 +1,23 @@
 import type { LeagueConfig } from "@/types/domain/league";
+import type { TeamAnalysisData } from "@/types/viewModels/teamAnalysis";
 
 export interface SleeperLeagueStatusDTO {
   seasonYear: number | string;
   currentWeek: number | null;
   leagueStatus: "pre_draft" | "in_season" | "complete" | string;
   seasonFinished: boolean;
+}
+
+export interface SleeperLeagueTeamsResponseDTO {
+  teams: Array<{
+    rosterId: number;
+    teamName: string;
+    default?: boolean;
+  }>;
+}
+
+export interface SleeperTeamAnalysisResponseDTO {
+  teamAnalysis: TeamAnalysisData;
 }
 
 export interface PowerRankingDTO {
