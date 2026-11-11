@@ -71,3 +71,12 @@ export interface TeamAnalysisData {
   };
   compareTeamId: string | null;
 }
+
+export interface TeamComparisonData {
+  primaryTeam: TeamAnalysisData["team"];
+  secondaryTeam: TeamAnalysisData["team"];
+  primaryPowerScore: number;
+  secondaryPowerScore: number;
+  primaryWinProbability: number | null;
+  secondaryWinProbability: number | null;
+}

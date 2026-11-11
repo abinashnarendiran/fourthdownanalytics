@@ -18,6 +18,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import { LEAGUE_STATUS } from "@/constants/leagueStatusSleeper";
 import HeaderControls from "../components/HeaderControls";
 import InSeason from "./InSeason/InSeason";
+import TeamComparisonDrawer from "./components/TeamComparisonDrawer";
 
 export default function TeamAnalysis() {
   const [selectedLeague, setSelectedLeague] = useState<FantasyLeague | null>(
@@ -35,6 +36,7 @@ export default function TeamAnalysis() {
   );
   const [teamAnalysisData, setTeamAnalysisData] =
     useState<TeamAnalysisData | null>(null);
+  const [comparisonOpen, setComparisonOpen] = useState(false);
 
   const loading = loadingStatus || loadingAnalysis;
 
@@ -102,6 +104,7 @@ export default function TeamAnalysis() {
       if (requestError) {
         setError(requestError.message);
         setTeamAnalysisData(null);
+        setComparisonOpen(false);
       } else {
         setTeamAnalysisData(analysis);
       }
@@ -149,6 +152,7 @@ export default function TeamAnalysis() {
   };
 
   const handleSelectWeek = (week: number) => {
+    setComparisonOpen(false);
     setLoadingAnalysis(true);
     setTeamAnalysisData(null);
     setError("");
@@ -157,6 +161,7 @@ export default function TeamAnalysis() {
 
   const handleSelectTeam = useCallback(
     (team: TeamRosterOption) => {
+      setComparisonOpen(false);
       setLoadingAnalysis(
         leagueMetaData?.leagueStatus !== LEAGUE_STATUS.preDraft.value,
       );
@@ -216,15 +221,25 @@ export default function TeamAnalysis() {
               rosters remain available in the team selector.
             </p>
           </div>
-        ) : teamAnalysisData && selectedTeam ? (
+        ) : teamAnalysisData && selectedTeam && leagueMetaData ? (
           <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
             <div className="lg:col-span-8">
               <div className="min-h-150 rounded-2xl border border-border bg-background p-8 shadow-sm">
-                <header className="mb-8 flex items-center justify-between">
-                  <h3 className="text-xl font-bold">Season Performance</h3>
-                  <span className="rounded bg-accent/10 px-2 py-1 text-xs font-bold uppercase text-accent">
-                    Live Data
-                  </span>
+                <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xl font-bold">Season Performance</h3>
+                    <span className="mt-2 inline-flex rounded bg-accent/10 px-2 py-1 text-xs font-bold uppercase text-accent">
+                      Live Data
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setComparisonOpen(true)}
+                    aria-expanded={comparisonOpen}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
+                  >
+                    Compare Team
+                  </button>
                 </header>
                 <InSeason data={teamAnalysisData} />
               </div>
@@ -236,6 +251,15 @@ export default function TeamAnalysis() {
                 </div>
               )}
             </div>
+            <TeamComparisonDrawer
+              open={comparisonOpen}
+              onClose={() => setComparisonOpen(false)}
+              leagueId={selectedLeague.id}
+              week={selectedWeek}
+              seasonStatus={leagueMetaData.leagueStatus}
+              primaryTeam={selectedTeam}
+              teams={teams}
+            />
           </div>
         ) : (
           <div className="rounded-2xl border border-border bg-background p-8 text-center">

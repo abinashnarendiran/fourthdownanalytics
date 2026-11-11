@@ -18,7 +18,10 @@ const {
   getLeagueWeeks,
 } = require("../util/rosterUtils");
 const { sendResultError } = require("../util/result");
-const { calculateTeamAnalysis } = require("../services/analytics/teamAnalysis");
+const {
+  calculateTeamAnalysis,
+  calculateTeamComparison,
+} = require("../services/analytics/teamAnalysis");
 const { getTeamIdentity } = require("../util/teamIdentity");
 
 module.exports.getSleeperLeagueStatus = async (req, res) => {
@@ -342,7 +345,8 @@ module.exports.getSleeperPowerRankingsSeasonData = async (req, res) => {
 module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
   try {
     const { userId } = req.user;
-    const { id, week, rosterId, seasonStatus } = req.body || {};
+    const { id, week, rosterId, compareRosterId, seasonStatus } =
+      req.body || {};
     if (typeof id !== "string" || id.length === 0) {
       return res.status(400).json({ message: "League Id is required" });
     }
@@ -353,6 +357,23 @@ module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
       Number(rosterId) < 1
     ) {
       return res.status(400).json({ message: "A valid rosterId is required" });
+    }
+    if (
+      compareRosterId !== undefined &&
+      (!Number.isInteger(Number(compareRosterId)) ||
+        Number(compareRosterId) < 1)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "A valid compareRosterId is required" });
+    }
+    if (
+      compareRosterId !== undefined &&
+      Number(compareRosterId) === Number(rosterId)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Choose two different rosters to compare" });
     }
 
     // Find league in your DB
@@ -426,6 +447,22 @@ module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
       return sendResultError(res, matchupsResult.error);
     }
 
+    if (compareRosterId !== undefined) {
+      const comparisonResult = await calculateTeamComparison({
+        rosters,
+        matchupsByWeek: matchupsResult.data,
+        primaryRosterId: Number(rosterId),
+        secondaryRosterId: Number(compareRosterId),
+        rosterPositions,
+        weekSettings,
+        throughWeek,
+      });
+      if (comparisonResult.error) {
+        return sendResultError(res, comparisonResult.error);
+      }
+      return res.status(200).json({ comparison: comparisonResult.data });
+    }
+
     const analysisResult = await calculateTeamAnalysis({
       rosters,
       matchupsByWeek: matchupsResult.data,
@@ -434,9 +471,7 @@ module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
       weekSettings,
       throughWeek,
     });
-    if (analysisResult.error) {
-      return sendResultError(res, analysisResult.error);
-    }
+    if (analysisResult.error) return sendResultError(res, analysisResult.error);
     return res.status(200).json({ teamAnalysis: analysisResult.data });
   } catch (e) {
     return res.status(500).json({

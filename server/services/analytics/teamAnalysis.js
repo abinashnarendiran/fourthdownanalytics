@@ -6,6 +6,21 @@ const { calculateLuckIndex } = require("./luckIndex");
 
 const roundToTwoDecimals = (value) => Number(value.toFixed(2));
 
+const normalCumulativeProbability = (value) => {
+  const absoluteValue = Math.abs(value);
+  const t = 1 / (1 + 0.2316419 * absoluteValue);
+  const density =
+    0.3989422804014327 * Math.exp(-0.5 * absoluteValue * absoluteValue);
+  const tail =
+    density *
+    t *
+    (0.31938153 +
+      t *
+        (-0.356563782 +
+          t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return value >= 0 ? 1 - tail : tail;
+};
+
 const normalizePlayerId = (playerId) => {
   if (playerId && typeof playerId === "object") {
     const id =
@@ -74,9 +89,10 @@ const calculateTeamAnalysis = async ({
   const matchupPlayerIds = Object.entries(matchupsByWeek)
     .filter(([week]) => Number(week) > 0 && Number(week) <= lastWeek)
     .flatMap(([, matchups]) =>
-      matchups.flatMap((matchup) =>
-        (matchup.players || []).map(normalizePlayerId),
-      ),
+      matchups.flatMap((matchup) => [
+        ...(matchup.players || []).map(normalizePlayerId),
+        ...(matchup.starters || []).map(normalizePlayerId),
+      ]),
     )
     .filter((id) => id !== null && id !== "0" && id !== "");
   const playerIds = [...new Set([...rosterPlayerIds, ...matchupPlayerIds])];
@@ -186,7 +202,10 @@ const calculateTeamAnalysis = async ({
       ) {
         return;
       }
-      Object.entries(matchup.players_points).forEach(([playerId, points]) => {
+      (matchup.starters || []).forEach((starter) => {
+        const playerId = normalizePlayerId(starter);
+        if (!playerId) return;
+        const points = matchup.players_points[playerId];
         if (!Number.isFinite(points)) return;
         const player = playersById[playerId];
         if (!player) return;
@@ -354,4 +373,85 @@ const calculateTeamAnalysis = async ({
   });
 };
 
-module.exports = { calculateTeamAnalysis };
+const calculateTeamComparison = async ({
+  rosters,
+  matchupsByWeek,
+  primaryRosterId,
+  secondaryRosterId,
+  rosterPositions,
+  weekSettings,
+  throughWeek,
+}) => {
+  if (String(primaryRosterId) === String(secondaryRosterId)) {
+    return failure(
+      "Choose two different rosters to compare",
+      400,
+      "DUPLICATE_COMPARISON_ROSTERS",
+    );
+  }
+
+  const [primaryResult, secondaryResult] = await Promise.all([
+    calculateTeamAnalysis({
+      rosters,
+      matchupsByWeek,
+      rosterId: primaryRosterId,
+      rosterPositions,
+      weekSettings,
+      throughWeek,
+    }),
+    calculateTeamAnalysis({
+      rosters,
+      matchupsByWeek,
+      rosterId: secondaryRosterId,
+      rosterPositions,
+      weekSettings,
+      throughWeek,
+    }),
+  ]);
+  if (primaryResult.error) return primaryResult;
+  if (secondaryResult.error) return secondaryResult;
+
+  const primaryTeam = primaryResult.data.team;
+  const secondaryTeam = secondaryResult.data.team;
+  const primaryPowerScore = roundToTwoDecimals(
+    primaryTeam.averages.teamAvg * primaryTeam.scoredWeeks +
+      primaryTeam.winAnalysis.actualWins * 5,
+  );
+  const secondaryPowerScore = roundToTwoDecimals(
+    secondaryTeam.averages.teamAvg * secondaryTeam.scoredWeeks +
+      secondaryTeam.winAnalysis.actualWins * 5,
+  );
+
+  let primaryWinProbability = null;
+  let secondaryWinProbability = null;
+  if (primaryTeam.scoredWeeks > 0 && secondaryTeam.scoredWeeks > 0) {
+    const scoreDifference =
+      primaryTeam.averages.teamAvg - secondaryTeam.averages.teamAvg;
+    const combinedStandardDeviation = Math.sqrt(
+      primaryTeam.averages.stdDev ** 2 + secondaryTeam.averages.stdDev ** 2,
+    );
+    const probability =
+      combinedStandardDeviation === 0
+        ? scoreDifference > 0
+          ? 1
+          : scoreDifference < 0
+            ? 0
+            : 0.5
+        : normalCumulativeProbability(
+            scoreDifference / combinedStandardDeviation,
+          );
+    primaryWinProbability = roundToTwoDecimals(probability * 100);
+    secondaryWinProbability = roundToTwoDecimals((1 - probability) * 100);
+  }
+
+  return success({
+    primaryTeam,
+    secondaryTeam,
+    primaryPowerScore,
+    secondaryPowerScore,
+    primaryWinProbability,
+    secondaryWinProbability,
+  });
+};
+
+module.exports = { calculateTeamAnalysis, calculateTeamComparison };

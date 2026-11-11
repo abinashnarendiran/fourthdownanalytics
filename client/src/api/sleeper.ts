@@ -5,6 +5,7 @@ import type {
   SleeperLeagueStatusDTO,
   SleeperSeasonDataResponseDTO,
   SleeperTeamAnalysisResponseDTO,
+  SleeperTeamComparisonResponseDTO,
 } from "@/types/api/sleeper";
 import type { TeamRosterOption } from "@/types/viewModels/teamAnalysis";
 import type {
@@ -68,7 +69,10 @@ const mapSeasonData = (
   };
 };
 
-export const getSleeperPowerRankingsSeasonData = async (id: string, week: number) => {
+export const getSleeperPowerRankingsSeasonData = async (
+  id: string,
+  week: number,
+) => {
   const result = await request<SleeperSeasonDataResponseDTO>(() =>
     api.post("/sleeper/getSleeperPowerRankingsSeasonData", { id, week }),
   );
@@ -94,4 +98,23 @@ export const getSleeperTeamAnalysisSeasonData = async (
   );
 
   return mapApiResult(result, ({ teamAnalysis }) => teamAnalysis);
+};
+
+export const getSleeperTeamComparison = async (
+  id: string,
+  week: number,
+  rosterId: number,
+  compareRosterId: number,
+  seasonStatus: SleeperLeagueStatusDTO["leagueStatus"],
+) => {
+  const result = await request<SleeperTeamComparisonResponseDTO>(() =>
+    api.post("/sleeper/getSleeperTeamAnalysisSeasonData", {
+      id,
+      week,
+      rosterId,
+      compareRosterId,
+      seasonStatus,
+    }),
+  );
+  return mapApiResult(result, ({ comparison }) => comparison);
 };

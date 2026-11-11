@@ -1,5 +1,8 @@
 import type { LeagueConfig } from "@/types/domain/league";
-import type { TeamAnalysisData } from "@/types/viewModels/teamAnalysis";
+import type {
+  TeamAnalysisData,
+  TeamComparisonData,
+} from "@/types/viewModels/teamAnalysis";
 
 export interface SleeperLeagueStatusDTO {
   seasonYear: number | string;
@@ -18,6 +21,10 @@ export interface SleeperLeagueTeamsResponseDTO {
 
 export interface SleeperTeamAnalysisResponseDTO {
   teamAnalysis: TeamAnalysisData;
+}
+
+export interface SleeperTeamComparisonResponseDTO {
+  comparison: TeamComparisonData;
 }
 
 export interface PowerRankingDTO {

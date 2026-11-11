@@ -1,7 +1,10 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
 const { Players } = require("../models");
-const { calculateTeamAnalysis } = require("../services/analytics/teamAnalysis");
+const {
+  calculateTeamAnalysis,
+  calculateTeamComparison,
+} = require("../services/analytics/teamAnalysis");
 
 const rosterData = [
   {
@@ -146,4 +149,51 @@ test("Team Analysis returns roster details and zero metrics before matchups exis
   } finally {
     Players.findAll = originalFindAll;
   }
+});
+
+test("Team comparison returns power scores, positional scores, and projected probabilities", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => playerRows;
+
+  try {
+    const result = await calculateTeamComparison({
+      rosters: rosterData,
+      matchupsByWeek: weeklyMatchups,
+      primaryRosterId: 1,
+      secondaryRosterId: 2,
+      rosterPositions: ["QB", "FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.data.primaryTeam.rosterId, 1);
+    assert.equal(result.data.secondaryTeam.rosterId, 2);
+    assert.equal(result.data.primaryPowerScore, 102.5);
+    assert.equal(result.data.secondaryPowerScore, 102.5);
+    assert.equal(result.data.primaryWinProbability, 50);
+    assert.equal(result.data.secondaryWinProbability, 50);
+    assert.equal(result.data.primaryTeam.positionalOverview[0].totalPoints, 70);
+    assert.equal(
+      result.data.secondaryTeam.positionalOverview[0].totalPoints,
+      90,
+    );
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Team comparison rejects the same roster on both sides", async () => {
+  const result = await calculateTeamComparison({
+    rosters: rosterData,
+    matchupsByWeek: weeklyMatchups,
+    primaryRosterId: 1,
+    secondaryRosterId: 1,
+    rosterPositions: ["QB"],
+    weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+    throughWeek: 1,
+  });
+
+  assert.equal(result.data, null);
+  assert.equal(result.error.code, "DUPLICATE_COMPARISON_ROSTERS");
 });
