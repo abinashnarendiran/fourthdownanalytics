@@ -10,6 +10,19 @@ const { mapSleeperLeague } = require("../util/sleeperLeagueMapper");
 const { sendResultError } = require("../util/result");
 const { Op } = require("sequelize");
 
+const getDraftSettingsOrDefault = async (leagueId) => {
+  const draftResult = await getSleeperDraftSettings(leagueId);
+  if (!draftResult.error) return draftResult.data;
+
+  // eslint-disable-next-line no-console
+  console.warn("Sleeper draft settings unavailable; using defaults", {
+    leagueId,
+    code: draftResult.error.code,
+    message: draftResult.error.message,
+  });
+  return null;
+};
+
 module.exports.getUserPlatforms = async (req, res) => {
   try {
     const { userId } = req.user; // assuming req.user is set
@@ -137,9 +150,8 @@ module.exports.fetchSleeperAccount = async (req, res) => {
     if (sleeperLeagues) {
       const leagueResults = await Promise.all(
         sleeperLeagues.map(async (league) => {
-          const draftResult = await getSleeperDraftSettings(league.league_id);
-          if (draftResult.error) return draftResult;
-          const leagueDetails = mapSleeperLeague(league, draftResult.data);
+          const draftData = await getDraftSettingsOrDefault(league.league_id);
+          const leagueDetails = mapSleeperLeague(league, draftData);
           return {
             ...leagueDetails,
             added: existingLeagueIds.has(league.league_id),
@@ -364,14 +376,10 @@ module.exports.resyncPlatform = async (req, res) => {
           const sleeperLeague = sleeperLeagueResult.data;
           if (!sleeperLeague) return null;
 
-          const draftResult = await getSleeperDraftSettings(
+          const draftData = await getDraftSettingsOrDefault(
             leagueData.leagueId,
           );
-          if (draftResult.error) return draftResult;
-          const leagueDetails = mapSleeperLeague(
-            sleeperLeague,
-            draftResult.data,
-          );
+          const leagueDetails = mapSleeperLeague(sleeperLeague, draftData);
 
           // Update league info
           existingLeague.leagueName = leagueDetails.leagueName;

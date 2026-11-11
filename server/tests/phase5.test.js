@@ -8,12 +8,15 @@ axios.create = () => ({ get: (...args) => axios.get(...args) });
 const sleeperService = require("../services/sleeper");
 
 axios.create = originalCreate;
-const { getAllMatchups } = sleeperService;
+const { getAllMatchups, getSleeperByLeagueId } = sleeperService;
 const {
   calculateLineupEfficiency,
 } = require("../services/analytics/lineupEfficiency");
 const { calculateLuckIndex } = require("../services/analytics/luckIndex");
 const { assignRosterSlots } = require("../util/lineupUtils");
+const { addSeasonMetrics } = require("../services/seasonDataService");
+const { Players } = require("../models");
+const { sendResultError } = require("../util/result");
 
 const rosters = ["A", "B", "C", "D"].map((rosterId) => ({ rosterId }));
 
@@ -148,6 +151,8 @@ test("Lineup Efficiency uses season point totals and excludes reserve and taxi",
         optimalStarterPoints: 108,
         weeksScored: 2,
         weeksUnscored: 0,
+        weeksUnavailable: 0,
+        metadataWarnings: [],
         lineupEfficiency: 58.33,
       },
     ],
@@ -189,6 +194,45 @@ test("Lineup Efficiency uses current roster reserve/taxi lists when matchups omi
   assert.equal(result.lineupEfficiency, 33.33);
 });
 
+test("Lineup Efficiency excludes current starters absent from historical matchups", () => {
+  const playersById = {
+    "historical-qb": {
+      sleeperPlayerId: "historical-qb",
+      position: "QB",
+    },
+    "current-qb": {
+      sleeperPlayerId: "current-qb",
+      position: "QB",
+    },
+  };
+  const result = calculateLineupEfficiency(
+    [
+      {
+        rosterId: "A",
+        starters: [{ sleeperPlayerId: "current-qb" }],
+      },
+    ],
+    {
+      1: [
+        {
+          rosterId: "A",
+          players: ["historical-qb"],
+          starters: ["historical-qb"],
+          players_points: { "historical-qb": 18 },
+        },
+      ],
+    },
+    ["QB"],
+    playersById,
+    1,
+  );
+
+  assert.equal(result.error, null);
+  assert.equal(result.data[0].actualStarterPoints, 18);
+  assert.equal(result.data[0].optimalStarterPoints, 18);
+  assert.equal(result.data[0].lineupEfficiency, 100);
+});
+
 test("Lineup Efficiency skips zero-optimal weeks and reports them", () => {
   const playersById = {
     qb: { sleeperPlayerId: "qb", position: "QB" },
@@ -218,6 +262,8 @@ test("Lineup Efficiency skips zero-optimal weeks and reports them", () => {
         optimalStarterPoints: 0,
         weeksScored: 0,
         weeksUnscored: 1,
+        weeksUnavailable: 0,
+        metadataWarnings: [],
         lineupEfficiency: null,
       },
     ],
@@ -290,6 +336,97 @@ test("Lineup Efficiency returns errors for missing and invalid player points", (
   );
 });
 
+test("Season metrics ignore missing metadata for an unscored playoff player", async () => {
+  const originalFindAll = Players.findAll;
+  let lookupOptions;
+  Players.findAll = async (options) => {
+    lookupOptions = options;
+    return [
+      {
+        sleeperPlayerId: "regular-qb",
+        position: "QB",
+        fantasyPositions: [],
+        fullName: "Regular Season QB",
+      },
+    ];
+  };
+
+  try {
+    const result = await addSeasonMetrics({
+      rankings: [{ rosterId: 1 }],
+      rosters: [{ rosterId: 1 }],
+      matchupsByWeek: {
+        1: [
+          {
+            rosterId: 1,
+            players: ["regular-qb"],
+            starters: ["regular-qb"],
+            players_points: { "regular-qb": 10 },
+            points: 10,
+            opponent_points: 0,
+          },
+        ],
+        2: [
+          {
+            rosterId: 1,
+            players: ["missing-playoff-player"],
+            starters: ["missing-playoff-player"],
+            players_points: { "missing-playoff-player": 0 },
+            points: 0,
+            opponent_points: 0,
+          },
+        ],
+      },
+      rosterPositions: ["QB"],
+      weekSettings: { playoffWeekStart: 2 },
+      throughWeek: 2,
+    });
+
+    assert.equal(result.error, null);
+    assert.deepEqual(lookupOptions.where.sleeperPlayerId, ["regular-qb"]);
+    assert.equal(result.data[0].lineupEfficiencyWeeksUnavailable, 0);
+    assert.deepEqual(result.data[0].lineupEfficiencyMetadataWarnings, []);
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Season metrics retain rankings when regular-season player metadata is missing", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => [];
+
+  try {
+    const result = await addSeasonMetrics({
+      rankings: [{ rosterId: 1 }],
+      rosters: [{ rosterId: 1 }],
+      matchupsByWeek: {
+        1: [
+          {
+            rosterId: 1,
+            players: ["historical-player"],
+            starters: ["historical-player"],
+            players_points: { "historical-player": 10 },
+            points: 10,
+            opponent_points: 0,
+          },
+        ],
+      },
+      rosterPositions: ["QB"],
+      weekSettings: { playoffWeekStart: 2 },
+      throughWeek: 1,
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.data[0].lineupEfficiency, null);
+    assert.equal(result.data[0].lineupEfficiencyWeeksUnavailable, 1);
+    assert.deepEqual(result.data[0].lineupEfficiencyMetadataWarnings, [
+      "Missing player metadata for historical-player",
+    ]);
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
 test("optimal slot assignment leaves negative-score slots unfilled", () => {
   const result = assignRosterSlots(
     {
@@ -343,6 +480,64 @@ test("Sleeper matchup fetching preserves per-player points for analytics", async
 
     assert.deepEqual(matchups["1"][0].players_points, { qb: 15, rb: 5 });
     assert.deepEqual(matchups["1"][0].players, ["qb", "rb"]);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test("Sleeper league lookup preserves 404 and maps upstream failures to 502", async () => {
+  const originalGet = axios.get;
+  const notFoundError = new Error("Request failed with status code 404");
+  notFoundError.response = { status: 404 };
+  axios.get = async () => {
+    throw notFoundError;
+  };
+
+  try {
+    const notFoundResult = await getSleeperByLeagueId("missing-league");
+    assert.deepEqual(notFoundResult, {
+      data: null,
+      error: {
+        code: "SLEEPER_LEAGUE_NOT_FOUND",
+        message: "League not found on Sleeper",
+        status: 404,
+      },
+    });
+
+    const response = {
+      status(statusCode) {
+        this.statusCode = statusCode;
+        return this;
+      },
+      json(body) {
+        this.body = body;
+        return this;
+      },
+    };
+    sendResultError(response, notFoundResult.error);
+    assert.equal(response.statusCode, 404);
+    assert.deepEqual(response.body, {
+      message: "League not found on Sleeper",
+      code: "SLEEPER_LEAGUE_NOT_FOUND",
+    });
+
+    axios.get = async () => {
+      const serverError = new Error("Request failed with status code 503");
+      serverError.response = { status: 503 };
+      throw serverError;
+    };
+    const serverFailureResult = await getSleeperByLeagueId("league");
+    assert.equal(serverFailureResult.error.status, 502);
+    assert.equal(
+      serverFailureResult.error.code,
+      "SLEEPER_LEAGUE_REQUEST_FAILED",
+    );
+
+    axios.get = async () => {
+      throw new Error("Network timeout");
+    };
+    const networkFailureResult = await getSleeperByLeagueId("league");
+    assert.equal(networkFailureResult.error.status, 502);
   } finally {
     axios.get = originalGet;
   }

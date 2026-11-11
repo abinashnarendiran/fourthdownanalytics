@@ -80,6 +80,13 @@ const getSleeperByLeagueId = async (leagueId) => {
     );
     return success(response.data);
   } catch (err) {
+    if (err.response?.status === 404) {
+      return failure(
+        "League not found on Sleeper",
+        404,
+        "SLEEPER_LEAGUE_NOT_FOUND",
+      );
+    }
     return failure(err, 502, "SLEEPER_LEAGUE_REQUEST_FAILED");
   }
 };

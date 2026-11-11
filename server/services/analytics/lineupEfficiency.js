@@ -2,10 +2,17 @@ const { assignRosterSlots } = require("../../util/lineupUtils");
 const { success, failure } = require("../../util/result");
 
 const getPlayerId = (playerId) => {
-  if (playerId === undefined || playerId === null || String(playerId) === "0") {
+  const id =
+    playerId && typeof playerId === "object"
+      ? (playerId.player_id ??
+        playerId.sleeperPlayerId ??
+        playerId.playerId ??
+        playerId.id)
+      : playerId;
+  if (id === undefined || id === null || String(id) === "0") {
     return null;
   }
-  return String(playerId);
+  return String(id);
 };
 
 const roundToTwoDecimals = (value) => Number(value.toFixed(2));
@@ -60,6 +67,8 @@ const calculateLineupEfficiency = (
           optimalStarterPoints: 0,
           weeksScored: 0,
           weeksUnscored: 0,
+          weeksUnavailable: 0,
+          metadataWarnings: new Set(),
         },
       ]),
     );
@@ -116,39 +125,6 @@ const calculateLineupEfficiency = (
               return;
             }
 
-            const playerIds = matchup.players.map(getPlayerId).filter(Boolean);
-
-            const candidatePlayers = playerIds.map((playerId) => {
-              const player = playersById[playerId];
-              if (!player) {
-                processingError = failure(
-                  `Missing player metadata for ${playerId}`,
-                  422,
-                  "MISSING_PLAYER_METADATA",
-                );
-                return null;
-              }
-
-              const positions =
-                Array.isArray(player.fantasyPositions) &&
-                player.fantasyPositions.length > 0
-                  ? player.fantasyPositions
-                  : player.position;
-              if (
-                !positions ||
-                (Array.isArray(positions) && positions.length === 0)
-              ) {
-                processingError = failure(
-                  `Missing fantasy position for player ${playerId}`,
-                  422,
-                  "MISSING_PLAYER_POSITION",
-                );
-                return null;
-              }
-              return player;
-            });
-            if (processingError) return;
-
             let pointsError = null;
             const pointFor = (playerId) => {
               const id = getPlayerId(playerId);
@@ -175,12 +151,63 @@ const calculateLineupEfficiency = (
               return;
             }
 
+            const team = teams.get(rosterId);
+            const roster = rosterById.get(rosterId);
+            const matchupPlayerIds = new Set(
+              matchup.players.map(getPlayerId).filter(Boolean),
+            );
+            let metadataUnavailable = false;
+            const candidatePlayers = matchup.players
+              .map(getPlayerId)
+              .filter(Boolean)
+              .filter(
+                (playerId) =>
+                  Number.isFinite(matchup.players_points[playerId]) &&
+                  matchup.players_points[playerId] > 0,
+              )
+              .flatMap((playerId) => {
+                const player = playersById[playerId];
+                if (!player) {
+                  metadataUnavailable = true;
+                  team.metadataWarnings.add(
+                    `Missing player metadata for ${playerId}`,
+                  );
+                  return [];
+                }
+
+                const positions =
+                  Array.isArray(player.fantasyPositions) &&
+                  player.fantasyPositions.length > 0
+                    ? player.fantasyPositions
+                    : player.position;
+                if (
+                  !positions ||
+                  (Array.isArray(positions) && positions.length === 0)
+                ) {
+                  metadataUnavailable = true;
+                  team.metadataWarnings.add(
+                    `Missing fantasy position for ${playerId}`,
+                  );
+                  return [];
+                }
+                return [player];
+              });
+
+            if (metadataUnavailable) {
+              team.weeksUnavailable += 1;
+              return;
+            }
+
             const optimalLineupResult = assignRosterSlots(
               {
                 players: candidatePlayers,
-                starters: rosterById.get(rosterId).starters || [],
-                reserve: rosterById.get(rosterId).reserve || [],
-                taxi: rosterById.get(rosterId).taxi || [],
+                starters: [],
+                reserve: (roster.reserve || []).filter((player) =>
+                  matchupPlayerIds.has(getPlayerId(player)),
+                ),
+                taxi: (roster.taxi || []).filter((player) =>
+                  matchupPlayerIds.has(getPlayerId(player)),
+                ),
               },
               rosterPositions,
               (player) => pointFor(player.sleeperPlayerId),
@@ -194,8 +221,6 @@ const calculateLineupEfficiency = (
               return;
             }
             const optimalLineup = optimalLineupResult.data;
-
-            const team = teams.get(rosterId);
 
             if (optimalLineup.totalPoints <= 0) {
               team.weeksUnscored += 1;
@@ -222,15 +247,19 @@ const calculateLineupEfficiency = (
     );
     if (processingError) return processingError;
 
-    const results = [...teams.values()].map((team) => ({
-      ...team,
-      lineupEfficiency:
-        team.optimalStarterPoints > 0
-          ? roundToTwoDecimals(
-              (team.actualStarterPoints / team.optimalStarterPoints) * 100,
-            )
-          : null,
-    }));
+    const results = [...teams.values()].map((team) => {
+      const { metadataWarnings, ...teamResult } = team;
+      return {
+        ...teamResult,
+        metadataWarnings: [...metadataWarnings].sort(),
+        lineupEfficiency:
+          team.optimalStarterPoints > 0
+            ? roundToTwoDecimals(
+                (team.actualStarterPoints / team.optimalStarterPoints) * 100,
+              )
+            : null,
+      };
+    });
 
     return success(results);
   } catch (error) {

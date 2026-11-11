@@ -14,23 +14,40 @@ const { getTeamIdentity } = require("../util/teamIdentity");
 const { Players } = require("../models");
 const { success, failure } = require("../util/result");
 
-const getPlayersBySleeperId = async (matchupsByWeek) => {
+const getPlayersBySleeperId = async (
+  matchupsByWeek,
+  regularSeasonWeeks,
+  throughWeek,
+) => {
+  const lastWeek = Math.min(regularSeasonWeeks, throughWeek);
   const playerIds = [
     ...new Set(
-      Object.values(matchupsByWeek)
-        .flat()
-        .flatMap((matchup) => [
-          ...(matchup.players || []),
-          ...(matchup.starters || []),
-        ])
-        .map((playerId) =>
-          playerId === undefined || playerId === null ? null : String(playerId),
+      Object.entries(matchupsByWeek)
+        .filter(([week]) => Number(week) > 0 && Number(week) <= lastWeek)
+        .flatMap(([, matchups]) =>
+          matchups.flatMap((matchup) =>
+            (matchup.players || [])
+              .filter((playerId) => {
+                if (
+                  playerId === undefined ||
+                  playerId === null ||
+                  String(playerId) === "" ||
+                  String(playerId) === "0"
+                ) {
+                  return false;
+                }
+                const id = String(playerId);
+                const points = matchup.players_points?.[id];
+                return Number.isFinite(points) && points > 0;
+              })
+              .map(String),
+          ),
         )
-        .filter((playerId) => playerId && playerId !== "0"),
+        .filter(Boolean),
     ),
-  ].filter((playerId) => playerId !== "0");
+  ];
 
-  if (playerIds.length === 0) return success({});
+  if (playerIds.length === 0) return success({ playersById: {} });
 
   let players;
   try {
@@ -50,19 +67,7 @@ const getPlayersBySleeperId = async (matchupsByWeek) => {
   const playersById = Object.fromEntries(
     players.map((player) => [player.sleeperPlayerId, player]),
   );
-  const missingPlayerIds = playerIds.filter(
-    (playerId) => !playersById[playerId],
-  );
-
-  if (missingPlayerIds.length) {
-    return failure(
-      `Missing player metadata for Sleeper IDs: ${missingPlayerIds.join(", ")}`,
-      422,
-      "MISSING_PLAYER_METADATA",
-    );
-  }
-
-  return success(playersById);
+  return success({ playersById });
 };
 
 const addSeasonMetrics = async ({
@@ -74,7 +79,11 @@ const addSeasonMetrics = async ({
   throughWeek,
 }) => {
   const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
-  const playersResult = await getPlayersBySleeperId(matchupsByWeek);
+  const playersResult = await getPlayersBySleeperId(
+    matchupsByWeek,
+    regularSeasonWeeks,
+    throughWeek,
+  );
   if (playersResult.error) return playersResult;
   const luckResult = calculateLuckIndex(
     rosters,
@@ -88,7 +97,7 @@ const addSeasonMetrics = async ({
     rosters,
     matchupsByWeek,
     rosterPositions,
-    playersResult.data,
+    playersResult.data.playersById,
     regularSeasonWeeks,
     throughWeek,
   );
@@ -125,6 +134,8 @@ const addSeasonMetrics = async ({
       lineupEfficiency: efficiency.lineupEfficiency,
       lineupEfficiencyWeeksScored: efficiency.weeksScored,
       lineupEfficiencyWeeksUnscored: efficiency.weeksUnscored,
+      lineupEfficiencyWeeksUnavailable: efficiency.weeksUnavailable,
+      lineupEfficiencyMetadataWarnings: efficiency.metadataWarnings,
     });
   });
   if (metricError) return metricError;
@@ -332,4 +343,9 @@ const inSeason = async ({
   // Current Power Rankings
 };
 
-module.exports = { completeSeason, preDraftSeason, inSeason };
+module.exports = {
+  addSeasonMetrics,
+  completeSeason,
+  preDraftSeason,
+  inSeason,
+};

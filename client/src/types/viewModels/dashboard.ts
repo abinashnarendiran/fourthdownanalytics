@@ -12,6 +12,8 @@ export interface PowerRankingViewModel {
   lineupEfficiency: number | null;
   lineupEfficiencyWeeksScored: number;
   lineupEfficiencyWeeksUnscored: number;
+  lineupEfficiencyWeeksUnavailable: number;
+  lineupEfficiencyMetadataWarnings: string[];
   championship: boolean;
   runnerUp: boolean;
   lastPlace: boolean;
