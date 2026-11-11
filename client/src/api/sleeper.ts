@@ -7,7 +7,10 @@ import type {
   SleeperTeamAnalysisResponseDTO,
   SleeperTeamComparisonResponseDTO,
 } from "@/types/api/sleeper";
-import type { TeamRosterOption } from "@/types/viewModels/teamAnalysis";
+import type {
+  TeamRosterOption,
+  TeamComparisonSwap,
+} from "@/types/viewModels/teamAnalysis";
 import type {
   CompleteSeasonViewModel,
   DashboardLeagueStatus,
@@ -106,6 +109,8 @@ export const getSleeperTeamComparison = async (
   rosterId: number,
   compareRosterId: number,
   seasonStatus: SleeperLeagueStatusDTO["leagueStatus"],
+  primarySwap: TeamComparisonSwap | null = null,
+  secondarySwap: TeamComparisonSwap | null = null,
 ) => {
   const result = await request<SleeperTeamComparisonResponseDTO>(() =>
     api.post("/sleeper/getSleeperTeamAnalysisSeasonData", {
@@ -114,6 +119,8 @@ export const getSleeperTeamComparison = async (
       rosterId,
       compareRosterId,
       seasonStatus,
+      primarySwap,
+      secondarySwap,
     }),
   );
   return mapApiResult(result, ({ comparison }) => comparison);

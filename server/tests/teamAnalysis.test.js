@@ -23,6 +23,7 @@ const weeklyMatchups = {
   1: [
     {
       rosterId: 1,
+      opponent_id: 2,
       points: 100,
       opponent_points: 100,
       players: ["qb1", "rb1"],
@@ -31,6 +32,7 @@ const weeklyMatchups = {
     },
     {
       rosterId: 2,
+      opponent_id: 1,
       points: 100,
       opponent_points: 100,
       players: ["qb2", "rb2"],
@@ -39,6 +41,7 @@ const weeklyMatchups = {
     },
     {
       rosterId: 3,
+      opponent_id: 4,
       points: 50,
       opponent_points: 50,
       players: ["qb3", "rb3"],
@@ -47,6 +50,7 @@ const weeklyMatchups = {
     },
     {
       rosterId: 4,
+      opponent_id: 3,
       points: 50,
       opponent_points: 50,
       players: ["qb4", "rb4"],
@@ -93,6 +97,25 @@ test("Team Analysis returns fractional all-play wins and player-based positional
     assert.equal(result.data.team.winAnalysis.actualWins, 0.5);
     assert.equal(result.data.team.winAnalysis.expectedWins, 0.83);
     assert.equal(result.data.team.luck.luckIndex, -0.33);
+    assert.equal(result.data.team.coaching.coachingIQ, 100);
+    assert.equal(result.data.team.coaching.pointsLeft, 0);
+    assert.deepEqual(result.data.team.scheduleLuck.distribution, [
+      { wins: 0.5, losses: 0.5, count: 1, probability: 33.33 },
+      { wins: 1, losses: 0, count: 2, probability: 66.67 },
+    ]);
+    assert.deepEqual(
+      result.data.team.positionalRadar.map((axis) => ({
+        position: axis.position,
+        team: axis.team,
+      })),
+      [
+        { position: "QB", team: 70 },
+        { position: "RB", team: null },
+        { position: "WR", team: null },
+        { position: "TE", team: null },
+        { position: "FLEX", team: 30 },
+      ],
+    );
     assert.equal(result.data.team.averages.weeklyVsLeague[0].week, 1);
     assert.equal(result.data.team.averages.weeklyVsLeague[0].teamPoints, 100);
     assert.deepEqual(
@@ -143,9 +166,76 @@ test("Team Analysis returns roster details and zero metrics before matchups exis
     assert.equal(result.error, null);
     assert.equal(result.data.team.winAnalysis.expectedWins, 0);
     assert.equal(result.data.team.luck.luckIndex, 0);
+    assert.equal(result.data.team.coaching.coachingIQ, null);
+    assert.equal(result.data.team.scheduleLuck.schedulesEvaluated, 0);
     assert.deepEqual(result.data.team.averages.weeklyVsLeague, []);
     assert.equal(result.data.team.positionalOverview.length, 2);
     assert.equal(result.data.team.positionalOverview[0].averagePoints, null);
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Team Analysis omits incomplete weeks and reports missing-data coverage", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => playerRows;
+
+  try {
+    const result = await calculateTeamAnalysis({
+      rosters: rosterData,
+      matchupsByWeek: { 1: weeklyMatchups[1].slice(0, 2) },
+      rosterId: 1,
+      rosterPositions: ["QB", "FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.data.team.scoredWeeks, 0);
+    assert.deepEqual(result.data.team.dataCoverage, {
+      requestedWeeks: 1,
+      scoredWeeks: 0,
+      omittedWeeks: 1,
+    });
+    assert.equal(result.data.team.winAnalysis.actualWins, 0);
+    assert.equal(result.data.team.coaching.coachingIQ, null);
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Team Analysis keeps score metrics when player scoring data is incomplete", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => playerRows;
+  const matchupsWithMissingPlayerScore = {
+    1: weeklyMatchups[1].map((matchup) =>
+      matchup.rosterId === 1
+        ? {
+            ...matchup,
+            players_points: { qb1: 70 },
+          }
+        : matchup,
+    ),
+  };
+
+  try {
+    const result = await calculateTeamAnalysis({
+      rosters: rosterData,
+      matchupsByWeek: matchupsWithMissingPlayerScore,
+      rosterId: 1,
+      rosterPositions: ["QB", "FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.data.team.scoredWeeks, 1);
+    assert.equal(result.data.team.coaching.coachingIQ, null);
+    assert.equal(result.data.team.coaching.weeksUnavailable, 1);
+    assert.match(
+      result.data.team.coaching.metadataWarnings[0],
+      /incomplete player scores/,
+    );
   } finally {
     Players.findAll = originalFindAll;
   }
@@ -177,6 +267,83 @@ test("Team comparison returns power scores, positional scores, and projected pro
     assert.equal(
       result.data.secondaryTeam.positionalOverview[0].totalPoints,
       90,
+    );
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Team comparison applies selected-week starter and bench swaps to score curves", async () => {
+  const originalFindAll = Players.findAll;
+  const comparisonRosters = rosterData.map((roster) => ({
+    ...roster,
+    players:
+      roster.rosterId === 1
+        ? [...roster.players, "wr1"]
+        : roster.rosterId === 2
+          ? [...roster.players, "wr2"]
+          : roster.players,
+  }));
+  const comparisonMatchups = {
+    1: weeklyMatchups[1].map((matchup) => {
+      if (matchup.rosterId === 1) {
+        return {
+          ...matchup,
+          players: [...matchup.players, "wr1"],
+          players_points: { ...matchup.players_points, wr1: 80 },
+        };
+      }
+      if (matchup.rosterId === 2) {
+        return {
+          ...matchup,
+          players: [...matchup.players, "wr2"],
+          players_points: { ...matchup.players_points, wr2: 20 },
+        };
+      }
+      return matchup;
+    }),
+  };
+  Players.findAll = async () => [
+    ...playerRows,
+    {
+      sleeperPlayerId: "wr1",
+      fullName: "Wide Receiver One",
+      position: "WR",
+      fantasyPositions: ["WR"],
+    },
+    {
+      sleeperPlayerId: "wr2",
+      fullName: "Wide Receiver Two",
+      position: "WR",
+      fantasyPositions: ["WR"],
+    },
+  ];
+
+  try {
+    const result = await calculateTeamComparison({
+      rosters: comparisonRosters,
+      matchupsByWeek: comparisonMatchups,
+      primaryRosterId: 1,
+      secondaryRosterId: 2,
+      rosterPositions: ["QB", "FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+      selectedWeek: 1,
+      primarySwap: { starterId: "qb1", benchId: "wr1" },
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.data.scoreDistribution.primarySwap.pointsDelta, 10);
+    assert.equal(result.data.scoreDistribution.primary.mean, 110);
+    assert.equal(result.data.primaryWinProbability, 100);
+    assert.equal(
+      result.data.scoreDistribution.primarySwapOptions.bench[0].playerId,
+      "wr1",
+    );
+    assert.ok(
+      result.data.scoreDistribution.primary.points.some(
+        (point) => point.score === 110,
+      ),
     );
   } finally {
     Players.findAll = originalFindAll;

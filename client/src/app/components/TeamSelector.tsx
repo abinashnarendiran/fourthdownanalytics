@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { TeamSelectorProps } from "@/types/viewModels/teamSelector";
 import type { TeamRosterOption } from "@/types/viewModels/teamAnalysis";
 import { getSleeperLeagueSeasonTeams } from "@/api/sleeper";
@@ -11,17 +11,31 @@ export default function TeamSelector({
   className = "",
   selectClassName = "",
   onSelect,
+  onPrefetch,
   onGetTeams,
   disabled = false,
   id,
   excludeId,
   defaultEmpty = false,
   allowEmpty = false,
+  initialRosterId = null,
 }: TeamSelectorProps) {
+  const onSelectRef = useRef(onSelect);
+  const onGetTeamsRef = useRef(onGetTeams);
+  const initialRosterIdRef = useRef(initialRosterId);
   const [teams, setTeams] = useState<TeamRosterOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+    onGetTeamsRef.current = onGetTeams;
+  }, [onGetTeams, onSelect]);
+
+  useEffect(() => {
+    initialRosterIdRef.current = initialRosterId;
+  }, [initialRosterId]);
 
   useEffect(() => {
     let active = true;
@@ -47,7 +61,7 @@ export default function TeamSelector({
         }
 
         setTeams(fetchedTeams);
-        onGetTeams?.(fetchedTeams);
+        onGetTeamsRef.current?.(fetchedTeams);
 
         if (!defaultEmpty && fetchedTeams.length > 0) {
           const filtered = excludeId
@@ -55,8 +69,11 @@ export default function TeamSelector({
             : fetchedTeams;
 
           if (filtered.length > 0) {
-            const defaultTeam = filtered.find((team) => team.default === true);
-            onSelect?.(defaultTeam ?? filtered[0]);
+            const defaultTeam =
+              filtered.find(
+                (team) => team.rosterId === initialRosterIdRef.current,
+              ) ?? filtered.find((team) => team.default === true);
+            onSelectRef.current?.(defaultTeam ?? filtered[0]);
           }
         }
       } catch (requestError) {
@@ -76,7 +93,7 @@ export default function TeamSelector({
     return () => {
       active = false;
     };
-  }, [defaultEmpty, excludeId, id, onGetTeams, onSelect]);
+  }, [defaultEmpty, excludeId, id]);
 
   const visibleTeams = excludeId
     ? teams.filter((team) => team.rosterId !== excludeId)
@@ -120,6 +137,12 @@ export default function TeamSelector({
               const foundTeam = teams.find((l) => l.rosterId === Number(val));
               if (foundTeam) onSelect?.(foundTeam);
             }}
+            onMouseEnter={() => {
+              const team = teams.find(
+                (candidate) => candidate.rosterId === selected?.rosterId,
+              );
+              if (team) onPrefetch?.(team);
+            }}
             className={`w-full appearance-none rounded-md border
             px-3 py-2 text-sm
             bg-background text-foreground
@@ -147,7 +170,11 @@ export default function TeamSelector({
 
             {!loading &&
               filteredTeams.map((t) => (
-                <option key={t.rosterId} value={t.rosterId}>
+                <option
+                  key={t.rosterId}
+                  value={t.rosterId}
+                  onMouseEnter={() => onPrefetch?.(t)}
+                >
                   {t.teamName}
                 </option>
               ))}

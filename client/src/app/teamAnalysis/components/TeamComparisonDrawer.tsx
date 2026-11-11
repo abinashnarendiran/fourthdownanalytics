@@ -6,6 +6,8 @@ import type { DashboardLeagueStatus } from "@/types/viewModels/dashboard";
 import type {
   TeamAnalysisPosition,
   TeamComparisonData,
+  TeamComparisonPlayerOption,
+  TeamComparisonSwap,
   TeamRosterOption,
 } from "@/types/viewModels/teamAnalysis";
 
@@ -17,6 +19,8 @@ interface TeamComparisonDrawerProps {
   seasonStatus: DashboardLeagueStatus["leagueStatus"];
   primaryTeam: TeamRosterOption;
   teams: TeamRosterOption[];
+  initialRosterId: number | null;
+  onSelectRoster: (rosterId: number | null) => void;
 }
 
 const formatPoints = (points: number | null) =>
@@ -24,6 +28,23 @@ const formatPoints = (points: number | null) =>
 
 const getPosition = (positions: TeamAnalysisPosition[], positionName: string) =>
   positions.find((position) => position.position === positionName);
+
+const getDensityPath = (
+  points: Array<{ score: number; density: number }>,
+  minimumScore: number,
+  maximumScore: number,
+  maximumDensity: number,
+) =>
+  points
+    .map((point, index) => {
+      const x =
+        35 +
+        ((point.score - minimumScore) / (maximumScore - minimumScore || 1)) *
+          550;
+      const y = 175 - (point.density / (maximumDensity || 1)) * 145;
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
 
 const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
   open,
@@ -33,11 +54,17 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
   seasonStatus,
   primaryTeam,
   teams,
+  initialRosterId,
+  onSelectRoster,
 }) => {
-  const [selectedRosterId, setSelectedRosterId] = useState<number | null>(null);
+  const selectedRosterId = initialRosterId;
   const [comparison, setComparison] = useState<TeamComparisonData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [primaryStarterId, setPrimaryStarterId] = useState("");
+  const [primaryBenchId, setPrimaryBenchId] = useState("");
+  const [secondaryStarterId, setSecondaryStarterId] = useState("");
+  const [secondaryBenchId, setSecondaryBenchId] = useState("");
 
   const availableTeams = useMemo(
     () => teams.filter((team) => team.rosterId !== primaryTeam.rosterId),
@@ -46,10 +73,28 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
   const selectedTeam = availableTeams.find(
     (team) => team.rosterId === selectedRosterId,
   );
+  const primarySwap = useMemo<TeamComparisonSwap | null>(
+    () =>
+      primaryStarterId && primaryBenchId
+        ? { starterId: primaryStarterId, benchId: primaryBenchId }
+        : null,
+    [primaryBenchId, primaryStarterId],
+  );
+  const secondarySwap = useMemo<TeamComparisonSwap | null>(
+    () =>
+      secondaryStarterId && secondaryBenchId
+        ? { starterId: secondaryStarterId, benchId: secondaryBenchId }
+        : null,
+    [secondaryBenchId, secondaryStarterId],
+  );
 
   const closeDrawer = useCallback(() => {
     setLoading(false);
     setError("");
+    setPrimaryStarterId("");
+    setPrimaryBenchId("");
+    setSecondaryStarterId("");
+    setSecondaryBenchId("");
     onClose();
   }, [onClose]);
 
@@ -65,6 +110,8 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
         primaryTeam.rosterId,
         selectedRosterId,
         seasonStatus,
+        primarySwap,
+        secondarySwap,
       );
       if (!active) return;
 
@@ -97,6 +144,8 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
     primaryTeam.rosterId,
     seasonStatus,
     selectedRosterId,
+    primarySwap,
+    secondarySwap,
     week,
   ]);
 
@@ -126,6 +175,90 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
   const primaryName = comparison?.primaryTeam.name ?? primaryTeam.teamName;
   const secondaryName =
     comparison?.secondaryTeam.name ?? selectedTeam?.teamName;
+  const densityPoints = comparison
+    ? [
+        ...comparison.scoreDistribution.primary.points,
+        ...comparison.scoreDistribution.secondary.points,
+      ]
+    : [];
+  const minimumScore =
+    densityPoints.length > 0
+      ? Math.min(...densityPoints.map((point) => point.score))
+      : 0;
+  const maximumScore =
+    densityPoints.length > 0
+      ? Math.max(...densityPoints.map((point) => point.score))
+      : 1;
+  const maximumDensity =
+    densityPoints.length > 0
+      ? Math.max(...densityPoints.map((point) => point.density))
+      : 1;
+
+  const renderSwapControls = (
+    teamKey: string,
+    teamName: string,
+    options: {
+      starters: TeamComparisonPlayerOption[];
+      bench: TeamComparisonPlayerOption[];
+    },
+    starterId: string,
+    benchId: string,
+    setStarterId: (value: string) => void,
+    setBenchId: (value: string) => void,
+  ) => (
+    <section className="rounded-xl border border-border p-4">
+      <h4 className="mb-3 font-semibold">{teamName} — What If?</h4>
+      {options.starters.length === 0 || options.bench.length === 0 ? (
+        <p className="text-sm text-foreground/60">
+          Scored starters and bench players are unavailable for the selected
+          week.
+        </p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label htmlFor={`${teamKey}-starter-swap`} className="text-sm">
+            <span className="mb-1 block font-medium">Replace starter</span>
+            <select
+              id={`${teamKey}-starter-swap`}
+              value={starterId}
+              onChange={(event) => {
+                setLoading(true);
+                setError("");
+                setStarterId(event.target.value);
+              }}
+              className="w-full rounded-md border border-border bg-background px-3 py-2"
+            >
+              <option value="">Choose a starter</option>
+              {options.starters.map((player) => (
+                <option key={player.playerId} value={player.playerId}>
+                  {player.name} ({player.position}, {player.points.toFixed(1)})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor={`${teamKey}-bench-swap`} className="text-sm">
+            <span className="mb-1 block font-medium">Start bench player</span>
+            <select
+              id={`${teamKey}-bench-swap`}
+              value={benchId}
+              onChange={(event) => {
+                setLoading(true);
+                setError("");
+                setBenchId(event.target.value);
+              }}
+              className="w-full rounded-md border border-border bg-background px-3 py-2"
+            >
+              <option value="">Choose a bench player</option>
+              {options.bench.map((player) => (
+                <option key={player.playerId} value={player.playerId}>
+                  {player.name} ({player.position}, {player.points.toFixed(1)})
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+    </section>
+  );
 
   return (
     <>
@@ -179,10 +312,14 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
               value={selectedRosterId ?? ""}
               onChange={(event) => {
                 const rosterId = Number(event.target.value);
-                setSelectedRosterId(
-                  Number.isInteger(rosterId) && rosterId > 0 ? rosterId : null,
-                );
-                setLoading(Number.isInteger(rosterId) && rosterId > 0);
+                const nextRosterId =
+                  Number.isInteger(rosterId) && rosterId > 0 ? rosterId : null;
+                onSelectRoster(nextRosterId);
+                setPrimaryStarterId("");
+                setPrimaryBenchId("");
+                setSecondaryStarterId("");
+                setSecondaryBenchId("");
+                setLoading(nextRosterId !== null);
                 setError("");
                 setComparison(null);
               }}
@@ -247,7 +384,7 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
                       Estimated matchup probability
                     </p>
                     <p className="text-xs text-foreground/60">
-                      Based on scoring averages and weekly variance
+                      Historical estimate from regular-season scores
                     </p>
                   </div>
                   {comparison.primaryWinProbability === null ||
@@ -291,6 +428,137 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
                     </div>
                   )}
                 </article>
+              </section>
+
+              <section className="rounded-xl border border-border bg-background p-4">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">
+                      Historical Score Volatility
+                    </h3>
+                    <p className="text-xs text-foreground/60">
+                      Normal curves from regular-season scores; selected-week
+                      swaps shift the mean.
+                    </p>
+                  </div>
+                  <span className="text-xs text-foreground/60">
+                    Week {comparison.scoreDistribution.selectedWeek}
+                  </span>
+                </div>
+                {densityPoints.length === 0 ? (
+                  <div className="flex min-h-44 items-center justify-center rounded-lg border border-dashed border-border text-sm text-foreground/60">
+                    Score distributions are unavailable until both teams have
+                    scored.
+                  </div>
+                ) : (
+                  <>
+                    <svg
+                      role="img"
+                      aria-label={`${primaryName} and ${secondaryName} historical score distributions`}
+                      viewBox="0 0 620 205"
+                      className="h-56 w-full"
+                    >
+                      <line
+                        className="stroke-border"
+                        x1="35"
+                        x2="585"
+                        y1="175"
+                        y2="175"
+                      />
+                      <path
+                        d={getDensityPath(
+                          comparison.scoreDistribution.primary.points,
+                          minimumScore,
+                          maximumScore,
+                          maximumDensity,
+                        )}
+                        className="fill-none stroke-accent"
+                        strokeWidth="3"
+                      />
+                      <path
+                        d={getDensityPath(
+                          comparison.scoreDistribution.secondary.points,
+                          minimumScore,
+                          maximumScore,
+                          maximumDensity,
+                        )}
+                        className="fill-none stroke-muted-foreground"
+                        strokeWidth="3"
+                      />
+                      <text
+                        className="fill-muted-foreground"
+                        x="35"
+                        y="197"
+                        fontSize="11"
+                      >
+                        {minimumScore.toFixed(1)} pts
+                      </text>
+                      <text
+                        className="fill-muted-foreground"
+                        x="585"
+                        y="197"
+                        textAnchor="end"
+                        fontSize="11"
+                      >
+                        {maximumScore.toFixed(1)} pts
+                      </text>
+                    </svg>
+                    <div className="flex flex-wrap gap-4 text-xs">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-accent" />
+                        {primaryName} · μ{" "}
+                        {comparison.scoreDistribution.primary.mean.toFixed(1)}
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-foreground/60">
+                        <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground" />
+                        {secondaryName} · μ{" "}
+                        {comparison.scoreDistribution.secondary.mean.toFixed(1)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <p className="text-sm text-foreground/60">
+                  What-if swaps use observed player points for week{" "}
+                  {comparison.scoreDistribution.selectedWeek}. They are
+                  historical estimates, not future projections.
+                </p>
+                {renderSwapControls(
+                  "primary",
+                  primaryName,
+                  comparison.scoreDistribution.primarySwapOptions,
+                  primaryStarterId,
+                  primaryBenchId,
+                  setPrimaryStarterId,
+                  setPrimaryBenchId,
+                )}
+                {renderSwapControls(
+                  "secondary",
+                  secondaryName || "Comparison team",
+                  comparison.scoreDistribution.secondarySwapOptions,
+                  secondaryStarterId,
+                  secondaryBenchId,
+                  setSecondaryStarterId,
+                  setSecondaryBenchId,
+                )}
+                <p className="text-xs text-foreground/60">
+                  {comparison.scoreDistribution.primarySwap
+                    ? `${primaryName}: ${comparison.scoreDistribution.primarySwap.pointsDelta > 0 ? "+" : ""}${comparison.scoreDistribution.primarySwap.pointsDelta.toFixed(2)} points`
+                    : ""}
+                  {comparison.scoreDistribution.primarySwap &&
+                  comparison.scoreDistribution.secondarySwap
+                    ? " · "
+                    : ""}
+                  {comparison.scoreDistribution.secondarySwap
+                    ? `${secondaryName}: ${comparison.scoreDistribution.secondarySwap.pointsDelta > 0 ? "+" : ""}${comparison.scoreDistribution.secondarySwap.pointsDelta.toFixed(2)} points`
+                    : ""}
+                  {!comparison.scoreDistribution.primarySwap &&
+                  !comparison.scoreDistribution.secondarySwap
+                    ? "No swaps applied."
+                    : null}
+                </p>
               </section>
 
               <section>

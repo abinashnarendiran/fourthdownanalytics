@@ -24,6 +24,42 @@ const {
 } = require("../services/analytics/teamAnalysis");
 const { getTeamIdentity } = require("../util/teamIdentity");
 
+const teamAnalysisCache = new Map();
+const TEAM_ANALYSIS_CACHE_TTL_MS = 5 * 60 * 1000;
+const TEAM_ANALYSIS_CACHE_MAX_ENTRIES = 100;
+
+const getCachedTeamAnalysis = (key) => {
+  const cached = teamAnalysisCache.get(key);
+  if (!cached) return null;
+  if (Date.now() >= cached.expiresAt) {
+    teamAnalysisCache.delete(key);
+    return null;
+  }
+  return cached.response;
+};
+
+const cacheTeamAnalysis = (key, response) => {
+  if (teamAnalysisCache.size >= TEAM_ANALYSIS_CACHE_MAX_ENTRIES) {
+    const oldestKey = teamAnalysisCache.keys().next().value;
+    if (oldestKey) teamAnalysisCache.delete(oldestKey);
+  }
+  teamAnalysisCache.set(key, {
+    response,
+    expiresAt: Date.now() + TEAM_ANALYSIS_CACHE_TTL_MS,
+  });
+};
+
+const isValidWhatIfSwap = (swap) =>
+  swap === null ||
+  (swap !== undefined &&
+    typeof swap === "object" &&
+    typeof swap.starterId === "string" &&
+    swap.starterId.length > 0 &&
+    swap.starterId.length <= 80 &&
+    typeof swap.benchId === "string" &&
+    swap.benchId.length > 0 &&
+    swap.benchId.length <= 80);
+
 module.exports.getSleeperLeagueStatus = async (req, res) => {
   try {
     const { id } = req.params; // expecting { id } of the league record
@@ -345,8 +381,15 @@ module.exports.getSleeperPowerRankingsSeasonData = async (req, res) => {
 module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
   try {
     const { userId } = req.user;
-    const { id, week, rosterId, compareRosterId, seasonStatus } =
-      req.body || {};
+    const {
+      id,
+      week,
+      rosterId,
+      compareRosterId,
+      seasonStatus,
+      primarySwap,
+      secondarySwap,
+    } = req.body || {};
     if (typeof id !== "string" || id.length === 0) {
       return res.status(400).json({ message: "League Id is required" });
     }
@@ -374,6 +417,23 @@ module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Choose two different rosters to compare" });
+    }
+    if (
+      (primarySwap !== undefined && !isValidWhatIfSwap(primarySwap)) ||
+      (secondarySwap !== undefined && !isValidWhatIfSwap(secondarySwap))
+    ) {
+      return res.status(400).json({
+        message:
+          "Each what-if swap must include a starterId and benchId string",
+      });
+    }
+    if (
+      compareRosterId === undefined &&
+      (primarySwap !== undefined || secondarySwap !== undefined)
+    ) {
+      return res
+        .status(400)
+        .json({ message: "What-if swaps require a comparison roster" });
     }
 
     // Find league in your DB
@@ -437,6 +497,24 @@ module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
     if (!isComplete && (!Number.isInteger(throughWeek) || throughWeek < 1)) {
       return res.status(400).json({ message: "A valid week is required" });
     }
+    const selectedWeek =
+      Number.isInteger(Number(week)) &&
+      Number(week) > 0 &&
+      Number(week) <= throughWeek
+        ? Number(week)
+        : throughWeek;
+    const cacheKey = JSON.stringify([
+      leagueId,
+      throughWeek,
+      selectedWeek,
+      Number(rosterId),
+      compareRosterId === undefined ? null : Number(compareRosterId),
+      primarySwap || null,
+      secondarySwap || null,
+      JSON.stringify(rosterPositions),
+    ]);
+    const cachedResponse = getCachedTeamAnalysis(cacheKey);
+    if (cachedResponse) return res.status(200).json(cachedResponse);
 
     const matchupsResult = await getAllMatchups(
       leagueId,
@@ -456,11 +534,16 @@ module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
         rosterPositions,
         weekSettings,
         throughWeek,
+        selectedWeek,
+        primarySwap: primarySwap || null,
+        secondarySwap: secondarySwap || null,
       });
       if (comparisonResult.error) {
         return sendResultError(res, comparisonResult.error);
       }
-      return res.status(200).json({ comparison: comparisonResult.data });
+      const response = { comparison: comparisonResult.data };
+      cacheTeamAnalysis(cacheKey, response);
+      return res.status(200).json(response);
     }
 
     const analysisResult = await calculateTeamAnalysis({
@@ -472,7 +555,9 @@ module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
       throughWeek,
     });
     if (analysisResult.error) return sendResultError(res, analysisResult.error);
-    return res.status(200).json({ teamAnalysis: analysisResult.data });
+    const response = { teamAnalysis: analysisResult.data };
+    cacheTeamAnalysis(cacheKey, response);
+    return res.status(200).json(response);
   } catch (e) {
     return res.status(500).json({
       message: "Error fetching team analysis",

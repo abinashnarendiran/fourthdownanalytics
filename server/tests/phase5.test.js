@@ -485,6 +485,51 @@ test("Sleeper matchup fetching preserves per-player points for analytics", async
   }
 });
 
+test("Sleeper matchup requests reuse the bounded five-minute cache", async () => {
+  const originalGet = axios.get;
+  let requestCount = 0;
+  axios.get = async () => {
+    requestCount += 1;
+    return {
+      data: [
+        {
+          matchup_id: 1,
+          roster_id: 1,
+          points: 10,
+          starters: [],
+          players: [],
+          players_points: {},
+        },
+        {
+          matchup_id: 1,
+          roster_id: 2,
+          points: 8,
+          starters: [],
+          players: [],
+          players_points: {},
+        },
+      ],
+    };
+  };
+
+  try {
+    const weekSettings = {
+      playoffWeekStart: 2,
+      playoffTeams: 0,
+      playoffRoundType: 0,
+    };
+    const first = await getAllMatchups("cached-league", weekSettings, 1);
+    const second = await getAllMatchups("cached-league", weekSettings, 1);
+
+    assert.equal(first.error, null);
+    assert.equal(second.error, null);
+    assert.equal(requestCount, 1);
+    assert.deepEqual(second.data, first.data);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
 test("Sleeper league lookup preserves 404 and maps upstream failures to 502", async () => {
   const originalGet = axios.get;
   const notFoundError = new Error("Request failed with status code 404");

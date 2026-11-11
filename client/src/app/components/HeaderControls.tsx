@@ -20,6 +20,8 @@ interface HeaderControlsProps {
   setTeams?: (teams: TeamRosterOption[]) => void;
   selectedTeam?: TeamRosterOption | null;
   setSelectedTeam?: (team: TeamRosterOption) => void;
+  onPrefetchTeam?: (team: TeamRosterOption) => void;
+  initialTeamId?: number | null;
 }
 
 const HeaderControls: React.FC<HeaderControlsProps> = ({
@@ -34,6 +36,8 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
   setTeams,
   selectedTeam,
   setSelectedTeam,
+  onPrefetchTeam,
+  initialTeamId,
 }) => {
   return (
     <div className="flex items-center gap-4">
@@ -62,6 +66,8 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
             id={selectedLeague.id}
             selected={selectedTeam}
             onSelect={setSelectedTeam}
+            onPrefetch={onPrefetchTeam}
+            initialRosterId={initialTeamId}
             disabled={loading}
           />
         </div>

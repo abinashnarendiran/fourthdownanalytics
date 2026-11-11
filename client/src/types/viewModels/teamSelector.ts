@@ -7,9 +7,11 @@ export interface TeamSelectorProps {
   className?: string;
   selectClassName?: string;
   onSelect?: (team: TeamRosterOption) => void;
+  onPrefetch?: (team: TeamRosterOption) => void;
   onGetTeams?: (teams: TeamRosterOption[]) => void;
   disabled?: boolean;
   excludeId?: number;
   defaultEmpty?: boolean;
   allowEmpty?: boolean;
+  initialRosterId?: number | null;
 }

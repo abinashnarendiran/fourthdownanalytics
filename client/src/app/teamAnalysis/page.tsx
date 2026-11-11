@@ -1,18 +1,22 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { MainLayout } from "../components/MainLayout";
 import { Protected } from "../components/Protected";
 import type { FantasyLeague } from "@/types/viewModels/integrations";
 import type { DashboardLeagueStatus } from "@/types/viewModels/dashboard";
 import type {
   TeamAnalysisData,
+  TeamAnalysisMetricTab,
   TeamRosterOption,
 } from "@/types/viewModels/teamAnalysis";
+import type { ApiResult } from "@/apiConfig/client";
 import {
   getSleeperLeagueStatus,
   getSleeperTeamAnalysisSeasonData,
 } from "@/api/sleeper";
+import type { SleeperLeagueStatusDTO } from "@/types/api/sleeper";
 import { LeagueStatusCard } from "../components/LeagueStatusCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { LEAGUE_STATUS } from "@/constants/leagueStatusSleeper";
@@ -20,7 +24,32 @@ import HeaderControls from "../components/HeaderControls";
 import InSeason from "./InSeason/InSeason";
 import TeamComparisonDrawer from "./components/TeamComparisonDrawer";
 
+const readQueryId = (name: string): number | null => {
+  if (typeof window === "undefined") return null;
+  const value = Number(new URLSearchParams(window.location.search).get(name));
+  return Number.isInteger(value) && value > 0 ? value : null;
+};
+
+const readMetricTab = (): TeamAnalysisMetricTab => {
+  if (typeof window === "undefined") return "overview";
+  const value = new URLSearchParams(window.location.search).get("metric");
+  return value === "schedule" || value === "positions" ? value : "overview";
+};
+
 export default function TeamAnalysis() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [requestedTeamId] = useState(() => readQueryId("teamId"));
+  const [initialTeamId, setInitialTeamId] = useState(requestedTeamId);
+  const [compareRosterFromUrl, setCompareRosterFromUrl] = useState<
+    number | null
+  >(() => readQueryId("compareWith"));
+  const compareRosterFromUrlRef = useRef(compareRosterFromUrl);
+  const teamsRef = useRef<TeamRosterOption[]>([]);
+  const initialSelectionPending = useRef(true);
+  const analysisRequests = useRef(
+    new Map<string, Promise<ApiResult<TeamAnalysisData>>>(),
+  );
   const [selectedLeague, setSelectedLeague] = useState<FantasyLeague | null>(
     null,
   );
@@ -36,9 +65,83 @@ export default function TeamAnalysis() {
   );
   const [teamAnalysisData, setTeamAnalysisData] =
     useState<TeamAnalysisData | null>(null);
-  const [comparisonOpen, setComparisonOpen] = useState(false);
+  const [comparisonOpen, setComparisonOpen] = useState(
+    () => readQueryId("compareWith") !== null,
+  );
+  const [metricTab, setMetricTab] =
+    useState<TeamAnalysisMetricTab>(readMetricTab);
 
   const loading = loadingStatus || loadingAnalysis;
+
+  const updateQuery = useCallback(
+    (
+      updates: Partial<
+        Record<"teamId" | "compareWith" | "metric", string | null>
+      >,
+    ) => {
+      const params = new URLSearchParams(window.location.search);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === null) params.delete(key);
+        else if (value !== undefined) params.set(key, value);
+      });
+      const query = params.toString();
+      router.replace(`${pathname}${query ? `?${query}` : ""}`, {
+        scroll: false,
+      });
+    },
+    [pathname, router],
+  );
+
+  const requestTeamAnalysis = useCallback(
+    (
+      leagueId: string,
+      week: number,
+      rosterId: number,
+      status: SleeperLeagueStatusDTO["leagueStatus"],
+    ) => {
+      const key = `${leagueId}:${week}:${rosterId}:${status}`;
+      const requests = analysisRequests.current;
+      const existing = requests.get(key);
+      if (existing) return existing;
+      const request = getSleeperTeamAnalysisSeasonData(
+        leagueId,
+        week,
+        rosterId,
+        status,
+        null,
+      ).catch((requestError: unknown): ApiResult<TeamAnalysisData> => [
+        requestError instanceof Error
+          ? requestError
+          : new Error("Unable to load team analysis"),
+        null,
+      ]);
+      if (requests.size >= 40) {
+        const oldestKey = requests.keys().next().value;
+        if (oldestKey) requests.delete(oldestKey);
+      }
+      requests.set(key, request);
+      return request;
+    },
+    [],
+  );
+
+  const prefetchTeamAnalysis = useCallback(
+    (team: TeamRosterOption) => {
+      if (
+        selectedLeague &&
+        leagueMetaData &&
+        leagueMetaData.leagueStatus !== LEAGUE_STATUS.preDraft.value
+      ) {
+        void requestTeamAnalysis(
+          selectedLeague.id,
+          selectedWeek,
+          team.rosterId,
+          leagueMetaData.leagueStatus,
+        );
+      }
+    },
+    [leagueMetaData, requestTeamAnalysis, selectedLeague, selectedWeek],
+  );
 
   useEffect(() => {
     if (!selectedLeague) return;
@@ -92,16 +195,18 @@ export default function TeamAnalysis() {
     let active = true;
 
     const fetchAnalysis = async () => {
-      const [requestError, analysis] = await getSleeperTeamAnalysisSeasonData(
+      const [requestError, analysis] = await requestTeamAnalysis(
         selectedLeague.id,
         selectedWeek,
         selectedTeam.rosterId,
         leagueMetaData.leagueStatus,
-        null,
       );
       if (!active) return;
 
       if (requestError) {
+        analysisRequests.current.delete(
+          `${selectedLeague.id}:${selectedWeek}:${selectedTeam.rosterId}:${leagueMetaData.leagueStatus}`,
+        );
         setError(requestError.message);
         setTeamAnalysisData(null);
         setComparisonOpen(false);
@@ -125,7 +230,13 @@ export default function TeamAnalysis() {
     return () => {
       active = false;
     };
-  }, [leagueMetaData, selectedLeague, selectedTeam, selectedWeek]);
+  }, [
+    leagueMetaData,
+    requestTeamAnalysis,
+    selectedLeague,
+    selectedTeam,
+    selectedWeek,
+  ]);
 
   const handleGetLeagues = useCallback((availableLeagues: FantasyLeague[]) => {
     if (availableLeagues.length === 0) return;
@@ -140,6 +251,24 @@ export default function TeamAnalysis() {
     setLoadingAnalysis(false);
   }, []);
 
+  const handleGetTeams = useCallback(
+    (availableTeams: TeamRosterOption[]) => {
+      teamsRef.current = availableTeams;
+      setTeams(availableTeams);
+      const compareRosterId = compareRosterFromUrlRef.current;
+      if (
+        compareRosterId !== null &&
+        !availableTeams.some((team) => team.rosterId === compareRosterId)
+      ) {
+        compareRosterFromUrlRef.current = null;
+        setCompareRosterFromUrl(null);
+        setComparisonOpen(false);
+        updateQuery({ compareWith: null });
+      }
+    },
+    [updateQuery],
+  );
+
   const handleSelectLeague = (league: FantasyLeague) => {
     setLoadingStatus(true);
     setSelectedWeek(1);
@@ -149,10 +278,20 @@ export default function TeamAnalysis() {
     setTeamAnalysisData(null);
     setError("");
     setSelectedLeague(league);
+    setInitialTeamId(null);
+    teamsRef.current = [];
+    setCompareRosterFromUrl(null);
+    compareRosterFromUrlRef.current = null;
+    setComparisonOpen(false);
+    initialSelectionPending.current = false;
+    updateQuery({ teamId: null, compareWith: null });
   };
 
   const handleSelectWeek = (week: number) => {
     setComparisonOpen(false);
+    setCompareRosterFromUrl(null);
+    compareRosterFromUrlRef.current = null;
+    updateQuery({ compareWith: null });
     setLoadingAnalysis(true);
     setTeamAnalysisData(null);
     setError("");
@@ -161,7 +300,36 @@ export default function TeamAnalysis() {
 
   const handleSelectTeam = useCallback(
     (team: TeamRosterOption) => {
-      setComparisonOpen(false);
+      const isInitialDeepLink =
+        initialSelectionPending.current && team.rosterId === requestedTeamId;
+      initialSelectionPending.current = false;
+      setInitialTeamId(null);
+      const compareRosterId = compareRosterFromUrlRef.current;
+      const preservedCompareId =
+        isInitialDeepLink &&
+        compareRosterId !== null &&
+        compareRosterId !== team.rosterId &&
+        teamsRef.current.some(
+          (candidate) => candidate.rosterId === compareRosterId,
+        )
+          ? compareRosterId
+          : null;
+      if (!isInitialDeepLink) {
+        setComparisonOpen(false);
+        setCompareRosterFromUrl(null);
+        compareRosterFromUrlRef.current = null;
+      } else if (preservedCompareId === null) {
+        setComparisonOpen(false);
+        setCompareRosterFromUrl(null);
+        compareRosterFromUrlRef.current = null;
+      } else {
+        compareRosterFromUrlRef.current = preservedCompareId;
+      }
+      updateQuery({
+        teamId: String(team.rosterId),
+        compareWith:
+          preservedCompareId === null ? null : String(preservedCompareId),
+      });
       setLoadingAnalysis(
         leagueMetaData?.leagueStatus !== LEAGUE_STATUS.preDraft.value,
       );
@@ -169,8 +337,26 @@ export default function TeamAnalysis() {
       setError("");
       setSelectedTeam(team);
     },
-    [leagueMetaData],
+    [leagueMetaData, requestedTeamId, updateQuery],
   );
+
+  const handleMetricTabChange = (tab: TeamAnalysisMetricTab) => {
+    setMetricTab(tab);
+    updateQuery({ metric: tab });
+  };
+
+  const handleComparisonRosterChange = (rosterId: number | null) => {
+    compareRosterFromUrlRef.current = rosterId;
+    setCompareRosterFromUrl(rosterId);
+    updateQuery({
+      compareWith: rosterId === null ? null : String(rosterId),
+    });
+  };
+
+  const closeComparison = () => {
+    setComparisonOpen(false);
+    handleComparisonRosterChange(null);
+  };
 
   return (
     <Protected>
@@ -186,9 +372,11 @@ export default function TeamAnalysis() {
             loading={loading}
             leagueMetaData={leagueMetaData}
             chooseTeam
-            setTeams={setTeams}
+            setTeams={handleGetTeams}
             selectedTeam={selectedTeam}
             setSelectedTeam={handleSelectTeam}
+            onPrefetchTeam={prefetchTeamAnalysis}
+            initialTeamId={initialTeamId}
           />
         }
       >
@@ -241,7 +429,11 @@ export default function TeamAnalysis() {
                     Compare Team
                   </button>
                 </header>
-                <InSeason data={teamAnalysisData} />
+                <InSeason
+                  data={teamAnalysisData}
+                  activeMetric={metricTab}
+                  onMetricChange={handleMetricTabChange}
+                />
               </div>
             </div>
             <div className="space-y-6 lg:col-span-4">
@@ -253,12 +445,14 @@ export default function TeamAnalysis() {
             </div>
             <TeamComparisonDrawer
               open={comparisonOpen}
-              onClose={() => setComparisonOpen(false)}
+              onClose={closeComparison}
               leagueId={selectedLeague.id}
               week={selectedWeek}
               seasonStatus={leagueMetaData.leagueStatus}
               primaryTeam={selectedTeam}
               teams={teams}
+              initialRosterId={compareRosterFromUrl}
+              onSelectRoster={handleComparisonRosterChange}
             />
           </div>
         ) : (
