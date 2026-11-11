@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState } from "react";
-import { League, Platform } from "../../types/integration.types";
+import type {
+  ConnectedLeague,
+  Platform,
+} from "@/types/viewModels/integrations";
 
 interface DeleteLeagueModalProps {
   platform: Platform;
   leagueId: string;
-  league: League | null;
+  league: ConnectedLeague | null;
   onClose: () => void;
   onDeleteLeague: (id: string) => void; // use `id` (your internal one) for deletion
 }

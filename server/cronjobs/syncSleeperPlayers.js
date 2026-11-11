@@ -1,11 +1,20 @@
 const cron = require("node-cron");
 const { Players } = require("../models");
 const { getSleeperPlayers } = require("../services/sleeper");
+const { success, failure } = require("../util/result");
 
 const syncSleeperPlayers = async () => {
   try {
-    const sleeperPlayers = await getSleeperPlayers();
-    if (!sleeperPlayers) throw new Error("No player data received");
+    const sleeperPlayersResult = await getSleeperPlayers();
+    if (sleeperPlayersResult.error) return sleeperPlayersResult;
+    const sleeperPlayers = sleeperPlayersResult.data;
+    if (!sleeperPlayers) {
+      return failure(
+        "No player data received",
+        502,
+        "EMPTY_SLEEPER_PLAYERS_RESPONSE",
+      );
+    }
 
     const players = Object.entries(sleeperPlayers)
       .filter(([, p]) => p.position)
@@ -54,15 +63,20 @@ const syncSleeperPlayers = async () => {
         "metadata",
       ],
     });
+    return success({ syncedPlayerCount: players.length });
   } catch (err) {
     console.error("❌ Sleeper sync failed:", err.message);
+    return failure(err, 500, "SLEEPER_PLAYER_SYNC_FAILED");
   }
 };
 
 // Optional scheduler
 function scheduleSyncSleperPlayers() {
   return cron.schedule("0 4 * * *", async () => {
-    await syncSleeperPlayers();
+    const result = await syncSleeperPlayers();
+    if (result.error) {
+      console.error("Sleeper player sync did not complete", result.error);
+    }
   });
 }
 

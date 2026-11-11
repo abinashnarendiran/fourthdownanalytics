@@ -1,110 +1,166 @@
 const axios = require("axios");
 const { Players } = require("../models");
 const { getLeagueWeeks } = require("../util/rosterUtils");
-const { calculateFantasyPoints } = require("../util/metricsUtil");
+const { calculateFantasyPoints } = require("./analytics/common");
 const { regularSeasonWeeks } = require("../constants/nflState");
+const { success, failure } = require("../util/result");
 
 const sleeperAPIURL = "https://api.sleeper.app/v1";
+const sleeperStatsAPIURL = "https://api.sleeper.com";
+const sleeperApi = axios.create({ timeout: 15000 });
+
+const getSleeperPlayerRegularSeasonStats = async (
+  playerId,
+  season,
+  grouping,
+) => {
+  try {
+    const response = await sleeperApi.get(
+      `${sleeperStatsAPIURL}/stats/nfl/player/${playerId}`,
+      {
+        params: {
+          season,
+          season_type: "regular",
+          grouping,
+        },
+      },
+    );
+    return success(response.data);
+  } catch (err) {
+    return failure(err, 502, "SLEEPER_STATS_REQUEST_FAILED");
+  }
+};
+
+const getSleeperPlayerProjectedRegularSeasonStats = async (
+  playerId,
+  season,
+  grouping,
+) => {
+  try {
+    const response = await sleeperApi.get(
+      `${sleeperStatsAPIURL}/projections/nfl/player/${playerId}`,
+      {
+        params: {
+          season,
+          season_type: "regular",
+          grouping,
+        },
+      },
+    );
+    return success(response.data);
+  } catch (err) {
+    return failure(err, 502, "SLEEPER_PROJECTIONS_REQUEST_FAILED");
+  }
+};
 
 const getSleeperUser = async (userName) => {
   try {
-    const response = await axios.get(`${sleeperAPIURL}/user/${userName}`);
-    return response.data;
+    const response = await sleeperApi.get(`${sleeperAPIURL}/user/${userName}`);
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_USER_REQUEST_FAILED");
   }
 };
 
 const getSleeperLeagues = async (userId, year) => {
   try {
-    const response = await axios.get(
+    const response = await sleeperApi.get(
       `${sleeperAPIURL}/user/${userId}/leagues/nfl/${year}`,
     );
-    return response.data;
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_LEAGUES_REQUEST_FAILED");
   }
 };
 
 const getSleeperByLeagueId = async (leagueId) => {
   try {
-    const response = await axios.get(`${sleeperAPIURL}/league/${leagueId}`);
-    return response.data;
+    const response = await sleeperApi.get(
+      `${sleeperAPIURL}/league/${leagueId}`,
+    );
+    return success(response.data);
   } catch (err) {
-    return null;
+    if (err.response?.status === 404) {
+      return failure(
+        "League not found on Sleeper",
+        404,
+        "SLEEPER_LEAGUE_NOT_FOUND",
+      );
+    }
+    return failure(err, 502, "SLEEPER_LEAGUE_REQUEST_FAILED");
   }
 };
 
 const getSleeperDraftSettings = async (leagueId) => {
   try {
-    const response = await axios.get(
+    const response = await sleeperApi.get(
       `${sleeperAPIURL}/league/${leagueId}/drafts`,
     );
-    return response.data;
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_DRAFT_REQUEST_FAILED");
   }
 };
 
 const getNFLState = async () => {
   try {
-    const response = await axios.get(`${sleeperAPIURL}/state/nfl`);
-    return response.data;
+    const response = await sleeperApi.get(`${sleeperAPIURL}/state/nfl`);
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_NFL_STATE_REQUEST_FAILED");
   }
 };
 
 const getSleeperPlayers = async () => {
   try {
-    const response = await axios.get(`${sleeperAPIURL}/players/nfl`);
-    return response.data;
+    const response = await sleeperApi.get(`${sleeperAPIURL}/players/nfl`);
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_PLAYERS_REQUEST_FAILED");
   }
 };
 
 const getSleeperRosters = async (leagueId) => {
   try {
-    const response = await axios.get(
+    const response = await sleeperApi.get(
       `${sleeperAPIURL}/league/${leagueId}/rosters`,
     );
-    return response.data;
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_ROSTERS_REQUEST_FAILED");
   }
 };
 
 const getSleeperUsers = async (leagueId) => {
   try {
-    const response = await axios.get(
+    const response = await sleeperApi.get(
       `${sleeperAPIURL}/league/${leagueId}/users`,
     );
-    return response.data;
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_USERS_REQUEST_FAILED");
   }
 };
 
 const getSleeperWeeklyMatchups = async (leagueId, week) => {
   try {
-    const response = await axios.get(
+    const response = await sleeperApi.get(
       `${sleeperAPIURL}/league/${leagueId}/matchups/${week}`,
     );
-    return response.data;
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_MATCHUPS_REQUEST_FAILED");
   }
 };
 
 const getSleeperAllPlayersStats = async (seasonYear) => {
   try {
-    const response = await axios.get(
+    const response = await sleeperApi.get(
       `${sleeperAPIURL}/stats/nfl/regular/${seasonYear}`,
     );
-    return response.data;
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_ALL_STATS_REQUEST_FAILED");
   }
 };
 
@@ -135,8 +191,9 @@ const getPreseasonProjections = async (seasonYear, scoringSettings) => {
       };
     });
     const statsRes = await getSleeperAllPlayersStats(LAST_SEASON);
+    if (statsRes.error) return statsRes;
 
-    const stats = statsRes;
+    const stats = statsRes.data;
 
     const projections = [];
 
@@ -176,99 +233,130 @@ const getPreseasonProjections = async (seasonYear, scoringSettings) => {
      */
 
     projections.sort((a, b) => b.projectedPoints - a.projectedPoints);
-    return projections;
+    return success(projections);
   } catch (error) {
     console.error("Error building preseason projections:", error);
-    return [];
+    return failure(error, 500, "PRESEASON_PROJECTIONS_FAILED");
   }
 };
 
-const getAllMatchups = async (leagueId, weekSettings) => {
-  const { totalScoringWeeks } = getLeagueWeeks(weekSettings);
+const getAllMatchups = async (leagueId, weekSettings, throughWeek = null) => {
+  try {
+    if (!leagueId || !weekSettings || typeof weekSettings !== "object") {
+      return failure(
+        "League ID and week settings are required",
+        400,
+        "INVALID_MATCHUP_REQUEST",
+      );
+    }
 
-  const weeks = Array.from({ length: totalScoringWeeks }, (_, i) => i + 1);
+    const { totalScoringWeeks } = getLeagueWeeks(weekSettings);
+    const lastWeek =
+      throughWeek === null
+        ? totalScoringWeeks
+        : Math.min(totalScoringWeeks, Number(throughWeek));
+    if (!Number.isInteger(lastWeek) || lastWeek < 0) {
+      return failure(
+        "throughWeek must be a non-negative integer",
+        400,
+        "INVALID_THROUGH_WEEK",
+      );
+    }
+    const weeks = Array.from({ length: lastWeek }, (_, i) => i + 1);
 
-  // Fetch and process all weeks in parallel
-  const matchupsByWeekEntries = await Promise.all(
-    weeks.map(async (week) => {
-      try {
-        const res = await axios.get(
-          `${sleeperAPIURL}/league/${leagueId}/matchups/${week}`,
-        );
+    // Fetch and process all weeks in parallel
+    const matchupsByWeekEntries = await Promise.all(
+      weeks.map(async (week) => {
+        try {
+          const res = await sleeperApi.get(
+            `${sleeperAPIURL}/league/${leagueId}/matchups/${week}`,
+          );
 
-        // Normalize matchup data
-        const matchups = res.data.map((m) => ({
-          week,
-          matchup_id: m.matchup_id,
-          rosterId: m.roster_id,
-          points: m.points || 0,
-          starters: m.starters || [],
-          players: m.players || [],
-        }));
+          // Normalize matchup data
+          const matchups = res.data.map((m) => ({
+            week,
+            matchup_id: m.matchup_id,
+            rosterId: m.roster_id,
+            points: m.points,
+            starters: m.starters,
+            players: m.players,
+            players_points: m.players_points,
+            reserve: m.reserve,
+            taxi: m.taxi,
+          }));
 
-        // Attach opponent info in an immutable way
-        const grouped = matchups.reduce((acc, m) => {
-          if (!acc[m.matchup_id]) acc[m.matchup_id] = [];
-          acc[m.matchup_id].push(m);
-          return acc;
-        }, {});
+          // Attach opponent info in an immutable way
+          const grouped = matchups.reduce((acc, m) => {
+            if (!acc[m.matchup_id]) acc[m.matchup_id] = [];
+            acc[m.matchup_id].push(m);
+            return acc;
+          }, {});
 
-        const updatedMatchups = Object.values(grouped).flatMap(
-          ([teamA, teamB]) => {
-            if (!teamA || !teamB) return [];
+          const updatedMatchups = Object.values(grouped).flatMap(
+            ([teamA, teamB]) => {
+              if (!teamA || !teamB) return [];
 
-            const updatedA = {
-              ...teamA,
-              opponent_id: teamB.rosterId,
-              opponent_points: teamB.points,
-            };
+              const updatedA = {
+                ...teamA,
+                opponent_id: teamB.rosterId,
+                opponent_points: teamB.points,
+              };
 
-            const updatedB = {
-              ...teamB,
-              opponent_id: teamA.rosterId,
-              opponent_points: teamA.points,
-            };
+              const updatedB = {
+                ...teamB,
+                opponent_id: teamA.rosterId,
+                opponent_points: teamA.points,
+              };
 
-            return [updatedA, updatedB];
-          },
-        );
+              return [updatedA, updatedB];
+            },
+          );
 
-        return [week, updatedMatchups];
-      } catch (err) {
-        console.warn(`No matchups for week ${week}`);
-        return [week, []];
-      }
-    }),
-  );
+          return success([week, updatedMatchups]);
+        } catch (err) {
+          return failure(err, 502, "SLEEPER_WEEK_MATCHUPS_REQUEST_FAILED");
+        }
+      }),
+    );
 
-  // Convert array of [week, matchups] into an object
-  const matchupsByWeek = Object.fromEntries(matchupsByWeekEntries);
+    const failedWeek = matchupsByWeekEntries.find((result) => result.error);
+    if (failedWeek) return failedWeek;
 
-  return matchupsByWeek;
+    // Convert array of [week, matchups] into an object
+    const matchupsByWeek = Object.fromEntries(
+      matchupsByWeekEntries.map((result) => result.data),
+    );
+
+    return success(matchupsByWeek);
+  } catch (error) {
+    return failure(error, 500, "SLEEPER_MATCHUPS_PROCESSING_FAILED");
+  }
 };
 const getPlayoffsWinnersBracket = async (leagueId) => {
   try {
-    const response = await axios.get(
+    const response = await sleeperApi.get(
       `${sleeperAPIURL}/league/${leagueId}/winners_bracket`,
     );
-    return response.data;
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_WINNERS_BRACKET_REQUEST_FAILED");
   }
 };
 
 const getPlayoffsLosersBracket = async (leagueId) => {
   try {
-    const response = await axios.get(
+    const response = await sleeperApi.get(
       `${sleeperAPIURL}/league/${leagueId}/losers_bracket`,
     );
-    return response.data;
+    return success(response.data);
   } catch (err) {
-    return null;
+    return failure(err, 502, "SLEEPER_LOSERS_BRACKET_REQUEST_FAILED");
   }
 };
 
 module.exports = {
+  getSleeperPlayerProjectedRegularSeasonStats,
+  getSleeperPlayerRegularSeasonStats,
   getSleeperUser,
   getSleeperLeagues,
   getSleeperDraftSettings,

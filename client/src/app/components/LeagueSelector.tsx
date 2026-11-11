@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { getUserLeagues } from "@/api/leagues";
-import { FantasyLeague, LeagueSelectorProps } from "@/types/integration.types";
+import type { FantasyLeague } from "@/types/viewModels/integrations";
+import type { LeagueSelectorProps } from "@/types/viewModels/leagueSelector";
 
 export default function LeagueSelector({
   selected,
@@ -21,20 +22,18 @@ export default function LeagueSelector({
   useEffect(() => {
     const fetchLeagues = async () => {
       try {
-        const data = await getUserLeagues();
-        let leaguesData: FantasyLeague[] = [];
-
-        if (Array.isArray(data) && data[0] === null) {
-          leaguesData = data[1]?.leagues ?? [];
-        } else {
-          leaguesData = data ?? [];
+        const [requestError, leaguesData] = await getUserLeagues();
+        if (requestError) {
+          setError(requestError.message);
+          return;
         }
 
-        setLeagues(leaguesData);
-        onGetLeagues?.(leaguesData);
-      } catch (err: any) {
+        const availableLeagues = leaguesData ?? [];
+        setLeagues(availableLeagues);
+        onGetLeagues?.(availableLeagues);
+      } catch (err) {
         console.error(err);
-        setError(err.message || "Failed to load leagues");
+        setError(err instanceof Error ? err.message : "Failed to load leagues");
       } finally {
         setLoading(false);
       }
