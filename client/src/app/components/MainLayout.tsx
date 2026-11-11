@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { logout } from "../../api/auth";
 
+
 interface MainLayoutProps {
   children: React.ReactNode;
   title?: string;
@@ -35,9 +36,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   // Helper to style active links
-  const linkStyle = (path: string) => 
+  const linkStyle = (path: string) =>
     `p-2.5 rounded transition-colors font-medium ${
-      pathname === path ? "bg-white/20 text-white" : "hover:bg-white/10 text-white/70"
+      pathname === path
+        ? "bg-white/20 text-white"
+        : "hover:bg-white/10 text-white/70"
     }`;
 
   return (
@@ -50,13 +53,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             alt="Logo"
             width={32}
             height={32}
+            style={{ height: "auto" }}
             className="rounded"
           />
           <h6 className="text-sm font-bold leading-tight uppercase tracking-tighter">
-            Fourth Down<br/>Analytics
+            Fourth Down
+            <br />
+            Analytics
           </h6>
         </div>
-        
+
         <nav className="flex flex-col gap-1 flex-1">
           <Link href="/" className={linkStyle("/")}>Dashboard</Link>
           <Link href="/integrations" className={linkStyle("/integrations")}>Connect Platforms</Link>
@@ -70,12 +76,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         {/* Top Header Bar */}
         <header className="bg-background border-b border-border px-8 py-4 flex justify-between items-center shadow-sm">
           <div className="flex flex-col">
-             <h1 className="text-sm font-medium opacity-50 uppercase tracking-wider">
-               {title}
-             </h1>
-             <p className="font-bold text-lg">
-               {user ? user.name : "Guest User"}
-             </p>
+            <h1 className="text-sm font-medium opacity-50 uppercase tracking-wider">
+              {title}
+            </h1>
+            <p className="font-bold text-lg">
+              {user ? user.name : "Guest User"}
+            </p>
           </div>
 
           <div className="flex items-center gap-6">
@@ -85,7 +91,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                 {headerControls}
               </div>
             )}
-            
+
             <button
               onClick={handleLogout}
               className="bg-accent text-white px-4 py-1.5 rounded-md text-sm font-bold hover:opacity-90 transition-all"
@@ -99,16 +105,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         <main className="flex-1 p-8 overflow-y-auto">
           {title && (
             <div className="mb-8">
-              <h2 className="text-3xl font-extrabold tracking-tight">{title}</h2>
+              <h2 className="text-3xl font-extrabold tracking-tight">
+                {title}
+              </h2>
               {subtitle && (
                 <p className="text-muted-foreground mt-1 text-lg">{subtitle}</p>
               )}
             </div>
           )}
 
-          <div className="max-w-[1400px]">
-            {children}
-          </div>
+          <div className="max-w-[1400px]">{children}</div>
         </main>
       </div>
     </div>

@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { Platform, League, PlatformUser } from "../../types/integration.types";
+import type {
+  League,
+  Platform,
+  PlatformUser,
+} from "@/types/viewModels/integrations";
 import { LeaguePicker } from "./LeaguePicker";
 import { fetchSleeperAccount } from "@/api/intergrations";
 
@@ -51,7 +55,7 @@ export const AddLeagueModal: React.FC<AddLeagueModalProps> = ({
           setError(false);
           setErrorMessage("");
           setUserData(getSleeperUser[1]);
-          setLeagues((getSleeperUser[1]?.leagues as League[]) || []);
+          setLeagues(getSleeperUser[1]?.leagues || []);
           setStep(2);
         } else {
           setError(true);

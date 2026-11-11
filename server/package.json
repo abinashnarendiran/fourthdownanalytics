@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "test": "node --test",
     "lint": "eslint . --ext .js,.ts,.tsx,.mjs,.cjs",
     "lint:fix": "eslint . --ext .js,.ts,.tsx,.mjs,.cjs --fix",
     "format": "prettier --write ."

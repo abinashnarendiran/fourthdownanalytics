@@ -25,13 +25,6 @@ const schema = z.object({
 
 type LoginForm = z.infer<typeof schema>;
 
-// 1️⃣ Define User type (adjust fields as needed)
-interface User {
-  id: number; // match the API
-  email: string;
-  name?: string;
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, setUser } = useAuth();

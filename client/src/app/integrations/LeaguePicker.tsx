@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { League } from "../../types/integration.types";
+import type { League } from "@/types/viewModels/integrations";
 
 interface Props {
   leagues: League[];
@@ -36,24 +36,27 @@ export const LeaguePicker = ({
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Select leagues to add</h2>
       <ul className="space-y-2 max-h-64 overflow-y-auto">
-        {leagues.map((league) => (
+        {leagues.map((league) => {
+          const alreadyAdded = league.added ?? false;
+          return (
           <li key={league.leagueId} className="flex items-center">
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
                 className="accent-purple-600"
                 checked={selectedIds.includes(league.leagueId)}
-                disabled={league.added}
-                onChange={() => toggleLeague(league.leagueId, league.added)}
+                disabled={alreadyAdded}
+                onChange={() => toggleLeague(league.leagueId, alreadyAdded)}
               />
               <span
-                className={league.added ? "text-gray-400" : "text-gray-800"}
+                className={alreadyAdded ? "text-gray-400" : "text-gray-800"}
               >
-                {league.leagueName} {league.added && "(Already added)"}
+                {league.leagueName} {alreadyAdded && "(Already added)"}
               </span>
             </label>
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       <button

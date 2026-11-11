@@ -1,8 +1,12 @@
-import CurrentWeekSelector from "@/app/components/CurrentWeekSelector";
-import React, { useState } from "react";
+import React from "react";
 import PowerRankings from "../CompleteSeason/PowerRankings";
+import type { InSeasonViewModel } from "@/types/viewModels/dashboard";
 
-const InSeason: React.FC<any> = ({ seasonData }) => {
+interface InSeasonProps {
+  seasonData: InSeasonViewModel;
+}
+
+const InSeason: React.FC<InSeasonProps> = ({ seasonData }) => {
 
   return (
     <div style={{ padding: "2rem" }}>

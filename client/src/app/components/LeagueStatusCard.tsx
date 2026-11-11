@@ -9,7 +9,7 @@ export interface LeagueStatusCardProps {
     seasonYear: number | string;
     currentWeek: number | null;
     leagueStatus: string;
-    isSeasonFinished: boolean;
+    seasonFinished: boolean;
   };
 }
 
@@ -33,7 +33,7 @@ export const LeagueStatusCard: React.FC<LeagueStatusCardProps> = ({
     statusColors[leagueMetaData.leagueStatus] ?? "badge-complete";
 
   const currentWeekDisplay = (() => {
-    if (leagueMetaData.isSeasonFinished) return "—";
+    if (leagueMetaData.seasonFinished) return "—";
     if (leagueMetaData.currentWeek === null) return "Not started";
     return `Week ${leagueMetaData.currentWeek}`;
   })();
@@ -58,7 +58,7 @@ export const LeagueStatusCard: React.FC<LeagueStatusCardProps> = ({
 
         <p>
           <span className="label">Full NFL Season and Playoffs Finished:</span>{" "}
-          {leagueMetaData.isSeasonFinished ? "Yes" : "No"}
+          {leagueMetaData.seasonFinished ? "Yes" : "No"}
         </p>
       </div>
     </div>

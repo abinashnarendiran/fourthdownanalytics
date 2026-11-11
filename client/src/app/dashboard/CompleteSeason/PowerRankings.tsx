@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import styles from "../../../styles/Dashboard.module.css";
-import { PowerRankingsData } from "./CompleteSeason";
 import DataTooltip from "@/app/components/DataTooltip";
+import type { PowerRankingViewModel } from "@/types/viewModels/dashboard";
 
 export interface PowerRankingsProps {
-  powerRankings: PowerRankingsData[];
+  powerRankings: PowerRankingViewModel[];
   isInSeason?: boolean; // Optional flag to show/hide trends
 }
 

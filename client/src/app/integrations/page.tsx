@@ -5,7 +5,12 @@ import { Protected } from "../components/Protected";
 import { MainLayout } from "../components/MainLayout";
 import { PlatformCard } from "./PlatformCard";
 import { AddLeagueModal } from "./AddLeagueModal";
-import { League, Platform, PlatformUser } from "@/types/integration.types";
+import type {
+  ConnectedLeague,
+  League,
+  Platform,
+  PlatformUser,
+} from "@/types/viewModels/integrations";
 import {
   addLeagues,
   deleteFantasyPlatform,
@@ -15,8 +20,6 @@ import {
 } from "@/api/intergrations";
 import { DeleteLeagueModal } from "./DeleteLeagueModal";
 import { DeletePlatformModal } from "./DeletePlatformModal";
-/* import { getIntegrations } from "@/services/integrations.service";
-import { Platform, League } from "@/types/integration.types"; */
 
 export default function IntegrationsPage() {
   // List of fantasy platforms connected by the user
@@ -44,7 +47,8 @@ export default function IntegrationsPage() {
   const [deletePlatformModalOpen, setDeletePlatformModalOpen] = useState(false);
 
   // Selected league object (for UI + confirmation text)
-  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
+  const [selectedLeague, setSelectedLeague] =
+    useState<ConnectedLeague | null>(null);
 
   // Selected league DB ID (used for deletion API call)
   const [selectedLeagueDBId, setSelectedLeagueDBId] = useState<
@@ -163,10 +167,14 @@ export default function IntegrationsPage() {
 
   const handleResyncing = (platform: Platform) => async () => {
     setIsResyncing(true);
-    // Here you would call the API to resync the platform
-    await resyncPlatform(platform);
-    await fetchData();
-    setIsResyncing(false);
+    try {
+      if (platform.account) {
+        await resyncPlatform({ ...platform, account: platform.account });
+        await fetchData();
+      }
+    } finally {
+      setIsResyncing(false);
+    }
   };
 
   return (
