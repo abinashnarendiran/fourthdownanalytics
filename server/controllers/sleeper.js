@@ -1,6 +1,7 @@
 const { Leagues, FantasyPlatforms } = require("../models");
 const {
   getSleeperByLeagueId,
+  getAllMatchups,
   getNFLState,
   getSleeperRosters,
   getSleeperUsers,
@@ -11,8 +12,14 @@ const {
   inSeason,
 } = require("../services/seasonDataService");
 
-const { enrichRosters, attachUsersToRosters } = require("../util/rosterUtils");
+const {
+  enrichRosters,
+  attachUsersToRosters,
+  getLeagueWeeks,
+} = require("../util/rosterUtils");
 const { sendResultError } = require("../util/result");
+const { calculateTeamAnalysis } = require("../services/analytics/teamAnalysis");
+const { getTeamIdentity } = require("../util/teamIdentity");
 
 module.exports.getSleeperLeagueStatus = async (req, res) => {
   try {
@@ -116,18 +123,33 @@ module.exports.getSleeperLeagueSeasonTeams = async (req, res) => {
     } = leagueRecord;
 
     // Fetch league info from Sleeper
-    const sleeperData = await getSleeperByLeagueId(leagueId);
-    if (!sleeperData) {
+    const sleeperDataResult = await getSleeperByLeagueId(leagueId);
+    if (sleeperDataResult.error) {
+      return sendResultError(res, sleeperDataResult.error);
+    }
+    if (!sleeperDataResult.data) {
       return res.status(404).json({ message: "League not found on Sleeper" });
     }
 
-    let rosters = await getSleeperRosters(leagueId);
-    if (!rosters) rosters = [];
-    rosters = await enrichRosters(rosters); // ✅ Enrich with DB data
+    const [rostersResult, usersResult] = await Promise.all([
+      getSleeperRosters(leagueId),
+      getSleeperUsers(leagueId),
+    ]);
+    if (rostersResult.error) return sendResultError(res, rostersResult.error);
+    if (usersResult.error) return sendResultError(res, usersResult.error);
 
-    const users = await getSleeperUsers(leagueId);
-
-    rosters = attachUsersToRosters(rosters, users);
+    const enrichedRostersResult = await enrichRosters(rostersResult.data || []);
+    if (enrichedRostersResult.error) {
+      return sendResultError(res, enrichedRostersResult.error);
+    }
+    const rosterUsersResult = attachUsersToRosters(
+      enrichedRostersResult.data,
+      usersResult.data || [],
+    );
+    if (rosterUsersResult.error) {
+      return sendResultError(res, rosterUsersResult.error);
+    }
+    const rosters = rosterUsersResult.data;
 
     const desiredRosterFields = [
       "co_owners",
@@ -137,7 +159,7 @@ module.exports.getSleeperLeagueSeasonTeams = async (req, res) => {
       "teamName",
       "settings",
     ];
-    rosters = rosters.map((r) => {
+    const teams = rosters.map((r) => {
       const { settings, ...rest } = r;
 
       const userIdSleeper = r?.owner?.user_id ?? null;
@@ -148,15 +170,20 @@ module.exports.getSleeperLeagueSeasonTeams = async (req, res) => {
           .map((field) => [field, rest[field]]),
       );
 
+      const { teamName } = getTeamIdentity(r, r.owner, {
+        useRosterMetadata: true,
+      });
+
       return {
         ...base,
+        teamName,
         user_id: userIdSleeper,
         default: userIdSleeper === platformUserId,
       };
     });
     // Return fantasy-season-only status
     return res.json({
-      teams: rosters || [], // null unless fantasy season is active
+      teams,
     });
   } catch (error) {
     console.error("Error in getSleeperLeagueSeasonTeams:", error);
@@ -315,9 +342,17 @@ module.exports.getSleeperPowerRankingsSeasonData = async (req, res) => {
 module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
   try {
     const { userId } = req.user;
-    const { id, week, rosterId, seasonStatus } = req.body;
-    if (!id) {
+    const { id, week, rosterId, seasonStatus } = req.body || {};
+    if (typeof id !== "string" || id.length === 0) {
       return res.status(400).json({ message: "League Id is required" });
+    }
+    if (
+      rosterId === undefined ||
+      rosterId === null ||
+      !Number.isInteger(Number(rosterId)) ||
+      Number(rosterId) < 1
+    ) {
+      return res.status(400).json({ message: "A valid rosterId is required" });
     }
 
     // Find league in your DB
@@ -339,85 +374,74 @@ module.exports.getSleeperTeamAnalysisSeasonData = async (req, res) => {
         .json({ message: "League not found in your system" });
     }
 
-    const { leagueId, config, FantasyPlatform, type, seasonYear } =
-      leagueRecord;
+    const { leagueId, config } = leagueRecord;
 
-    const {
-      rosterPositions,
-      playoffTeams,
-      /* playoffRoundType,
-      playoffWeekStart,
-      playoffTeams, */
-    } = config;
+    const { rosterPositions } = config;
 
-    // Fetch league info from Sleeper
-    const sleeperData = await getSleeperByLeagueId(leagueId);
-    if (!sleeperData) {
-      console.error("Sleeper league not found for leagueId:", leagueId);
+    const sleeperDataResult = await getSleeperByLeagueId(leagueId);
+    if (sleeperDataResult.error) {
+      return sendResultError(res, sleeperDataResult.error);
+    }
+    if (!sleeperDataResult.data) {
       return res.status(404).json({ message: "League not found on Sleeper" });
     }
 
-    let rosters = await getSleeperRosters(leagueId);
-    if (!rosters) rosters = [];
-    rosters = await enrichRosters(rosters); // ✅ Enrich with DB data
+    const [rostersResult, usersResult] = await Promise.all([
+      getSleeperRosters(leagueId),
+      getSleeperUsers(leagueId),
+    ]);
+    if (rostersResult.error) return sendResultError(res, rostersResult.error);
+    if (usersResult.error) return sendResultError(res, usersResult.error);
 
-    const users = await getSleeperUsers(leagueId);
-
-    rosters = attachUsersToRosters(rosters, users);
-
-    const weekSettings = { regularSeasonWeeks, rosterPositions };
-
-    let teamAnalysis = null;
-    if (seasonStatus === "in_season") {
-      teamAnalysis = await inSeasonTeamAnalysis({
-        leagueId,
-        rosters,
-        users,
-        weekSettings,
-        rosterId,
-        currentWeek: week,
-        compareTeamId: null, // or a specific team ID to compare against
-        playoffTeams,
-      });
-    } else if (seasonStatus === "complete") {
-      teamAnalysis = await completeSeasonTeamAnalysis({
-        leagueId,
-        rosters,
-        users,
-        weekSettings,
-        rosterId,
-        compareTeamId: null,
-        seasonYear,
-        scoringSettings: config.scoringSettings,
-        playoffTeams,
-      });
-    } else {
-      const preDraftSeasonData = await preDraftSeason({
-        leagueId,
-        displayName: FantasyPlatform.displayName,
-        rosters,
-        config,
-        leagueType: type,
-        rosterPositions,
-        seasonYear,
-      });
-
-      teamAnalysis = preDraftSeasonData;
+    const enrichedRostersResult = await enrichRosters(rostersResult.data || []);
+    if (enrichedRostersResult.error) {
+      return sendResultError(res, enrichedRostersResult.error);
+    }
+    const rosterUsersResult = attachUsersToRosters(
+      enrichedRostersResult.data,
+      usersResult.data || [],
+    );
+    if (rosterUsersResult.error) {
+      return sendResultError(res, rosterUsersResult.error);
+    }
+    const rosters = rosterUsersResult.data;
+    const weekSettings = {
+      playoffWeekStart: config.playoffWeekStart,
+      playoffTeams: config.playoffTeams,
+      playoffRoundType: config.playoffRoundType,
+    };
+    const { regularSeasonWeeks } = getLeagueWeeks(weekSettings);
+    const isComplete = seasonStatus === "complete";
+    const throughWeek = isComplete ? regularSeasonWeeks : Number(week);
+    if (!isComplete && (!Number.isInteger(throughWeek) || throughWeek < 1)) {
+      return res.status(400).json({ message: "A valid week is required" });
     }
 
-    if (teamAnalysis === null) {
-      return res.status(500).json({
-        message:
-          "We couldn't load the team analysis data right now. Please try again in a moment.",
-      });
+    const matchupsResult = await getAllMatchups(
+      leagueId,
+      weekSettings,
+      throughWeek,
+    );
+    if (matchupsResult.error) {
+      return sendResultError(res, matchupsResult.error);
     }
-    return res.status(200).json({
-      teamAnalysis,
+
+    const analysisResult = await calculateTeamAnalysis({
+      rosters,
+      matchupsByWeek: matchupsResult.data,
+      rosterId: Number(rosterId),
+      rosterPositions,
+      weekSettings,
+      throughWeek,
     });
+    if (analysisResult.error) {
+      return sendResultError(res, analysisResult.error);
+    }
+    return res.status(200).json({ teamAnalysis: analysisResult.data });
   } catch (e) {
     return res.status(500).json({
-      message: "Error fetching Sleeper season data:",
-      error: e.message,
+      message: "Error fetching team analysis",
+      error: e instanceof Error ? e.message : String(e),
     });
   }
 };
