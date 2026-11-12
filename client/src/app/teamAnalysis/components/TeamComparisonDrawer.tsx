@@ -104,6 +104,8 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
     let active = true;
 
     const fetchComparison = async () => {
+      setLoading(true);
+      setError("");
       const [requestError, result] = await getSleeperTeamComparison(
         leagueId,
         week,
@@ -221,8 +223,6 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
               id={`${teamKey}-starter-swap`}
               value={starterId}
               onChange={(event) => {
-                setLoading(true);
-                setError("");
                 setStarterId(event.target.value);
               }}
               className="w-full rounded-md border border-border bg-background px-3 py-2"
@@ -241,8 +241,6 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
               id={`${teamKey}-bench-swap`}
               value={benchId}
               onChange={(event) => {
-                setLoading(true);
-                setError("");
                 setBenchId(event.target.value);
               }}
               className="w-full rounded-md border border-border bg-background px-3 py-2"
@@ -319,7 +317,6 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
                 setPrimaryBenchId("");
                 setSecondaryStarterId("");
                 setSecondaryBenchId("");
-                setLoading(nextRosterId !== null);
                 setError("");
                 setComparison(null);
               }}
