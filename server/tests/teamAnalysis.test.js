@@ -113,7 +113,6 @@ test("Team Analysis returns fractional all-play wins and player-based positional
         { position: "RB", team: null },
         { position: "WR", team: null },
         { position: "TE", team: null },
-        { position: "FLEX", team: 30 },
       ],
     );
     assert.equal(result.data.team.averages.weeklyVsLeague[0].week, 1);
@@ -232,7 +231,6 @@ test("positional radar uses recorded slots and retains negative starter scores",
       { position: "RB", team: -1.5, leagueAverage: 3.25, leagueLeader: 8 },
       { position: "WR", team: null, leagueAverage: null, leagueLeader: null },
       { position: "TE", team: null, leagueAverage: null, leagueLeader: null },
-      { position: "FLEX", team: 10.5, leagueAverage: 10.75, leagueLeader: 11 },
     ]);
   } finally {
     Players.findAll = originalFindAll;
@@ -326,6 +324,151 @@ test("Team Analysis keeps score metrics when player scoring data is incomplete",
       result.data.team.coaching.metadataWarnings[0],
       /incomplete player scores/,
     );
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("positional averages use only complete roster-weeks for each position", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => [
+    ...playerRows,
+    {
+      sleeperPlayerId: "rb5",
+      fullName: "Second Running Back",
+      position: "RB",
+      fantasyPositions: ["RB"],
+    },
+  ];
+  const rosters = rosterData.map((roster) =>
+    roster.rosterId === 1
+      ? { ...roster, players: [...roster.players, "rb5"] }
+      : roster,
+  );
+  const buildWeek = (week) =>
+    weeklyMatchups[1].map((matchup) => {
+      const points = { ...matchup.players_points };
+      if (matchup.rosterId === 1) {
+        points.rb5 = week === 1 ? 10 : week === 2 ? 20 : 0;
+        if (week === 2) delete points.rb1;
+        if (week === 3) points.rb1 = 0;
+      } else if (week === 2) {
+        if (matchup.rosterId === 2) delete points.rb2;
+        if (matchup.rosterId === 3) points.rb3 = 0;
+        if (matchup.rosterId === 4) points.rb4 = 5;
+      } else if (week === 3) {
+        delete points[`rb${matchup.rosterId}`];
+      }
+      return {
+        ...matchup,
+        players:
+          matchup.rosterId === 1
+            ? [...matchup.players, "rb5"]
+            : matchup.players,
+        starters:
+          matchup.rosterId === 1
+            ? [...matchup.starters, "rb5"]
+            : matchup.starters,
+        players_points: points,
+      };
+    });
+
+  try {
+    const calculate = (matchupsByWeek, throughWeek) =>
+      calculateTeamAnalysis({
+        rosters,
+        matchupsByWeek,
+        rosterId: 1,
+        rosterPositions: ["QB", "RB", "FLEX"],
+        weekSettings: { playoffWeekStart: 4, playoffTeams: 0 },
+        throughWeek,
+      });
+    const [allWeeks, missingWeek, missingLeague] = await Promise.all([
+      calculate({ 1: buildWeek(1), 2: buildWeek(2), 3: buildWeek(3) }, 3),
+      calculate({ 1: buildWeek(2) }, 1),
+      calculate(
+        {
+          1: buildWeek(2).map((matchup) => ({
+            ...matchup,
+            players_points: { [`qb${matchup.rosterId}`]: 10 },
+          })),
+        },
+        1,
+      ),
+    ]);
+
+    assert.equal(allWeeks.error, null);
+    const rb = allWeeks.data.team.positionalOverview.find(
+      (position) => position.position === "RB",
+    );
+    assert.equal(rb.totalPoints, 40);
+    assert.equal(rb.averagePoints, 20);
+    assert.equal(rb.leagueAveragePoints, 11.43);
+    assert.equal(rb.vsLeagueAverage, 8.57);
+    const qb = allWeeks.data.team.positionalOverview.find(
+      (position) => position.position === "QB",
+    );
+    assert.equal(qb.averagePoints, 70);
+    assert.equal(qb.leagueAveragePoints, 58.75);
+
+    assert.equal(missingWeek.error, null);
+    const missingRb = missingWeek.data.team.positionalOverview.find(
+      (position) => position.position === "RB",
+    );
+    assert.equal(missingRb.averagePoints, null);
+    assert.equal(missingRb.leagueAveragePoints, 2.5);
+    assert.equal(missingRb.vsLeagueAverage, null);
+
+    assert.equal(missingLeague.error, null);
+    const missingLeagueRb = missingLeague.data.team.positionalOverview.find(
+      (position) => position.position === "RB",
+    );
+    assert.equal(missingLeagueRb.averagePoints, null);
+    assert.equal(missingLeagueRb.leagueAveragePoints, null);
+    assert.equal(missingLeagueRb.vsLeagueAverage, null);
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("unknown starter positions exclude that roster-week from positional averages", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => [
+    ...playerRows,
+    { sleeperPlayerId: "unknown", position: null, fantasyPositions: [] },
+  ];
+  const matchups = weeklyMatchups[1].map((matchup) =>
+    matchup.rosterId === 1
+      ? {
+          ...matchup,
+          players: [...matchup.players, "unknown"],
+          starters: [...matchup.starters, "unknown"],
+          players_points: { ...matchup.players_points, unknown: 5 },
+        }
+      : matchup,
+  );
+
+  try {
+    const result = await calculateTeamAnalysis({
+      rosters: rosterData,
+      matchupsByWeek: { 1: matchups },
+      rosterId: 1,
+      rosterPositions: ["QB", "FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+    });
+    assert.equal(result.error, null);
+    const qb = result.data.team.positionalOverview.find(
+      (position) => position.position === "QB",
+    );
+    assert.equal(qb.averagePoints, null);
+    assert.equal(qb.leagueAveragePoints, 55);
+    assert.equal(qb.vsLeagueAverage, null);
+    const rb = result.data.team.positionalOverview.find(
+      (position) => position.position === "RB",
+    );
+    assert.equal(rb.averagePoints, null);
+    assert.equal(rb.leagueAveragePoints, 11.67);
   } finally {
     Players.findAll = originalFindAll;
   }
@@ -510,12 +653,12 @@ test("Team comparison applies selected-week starter and bench swaps to score cur
       weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
       throughWeek: 1,
       selectedWeek: 1,
-      primarySwap: { starterId: "qb1", benchId: "wr1" },
+      primarySwap: { starterId: "rb1", benchId: "wr1" },
     });
 
     assert.equal(result.error, null);
-    assert.equal(result.data.scoreDistribution.primarySwap.pointsDelta, 10);
-    assert.equal(result.data.scoreDistribution.primary.mean, 110);
+    assert.equal(result.data.scoreDistribution.primarySwap.pointsDelta, 50);
+    assert.equal(result.data.scoreDistribution.primary.mean, 150);
     assert.equal(result.data.primaryWinProbability, 100);
     assert.equal(
       result.data.scoreDistribution.primarySwapOptions.bench[0].playerId,
@@ -523,9 +666,393 @@ test("Team comparison applies selected-week starter and bench swaps to score cur
     );
     assert.ok(
       result.data.scoreDistribution.primary.points.some(
-        (point) => point.score === 110,
+        (point) => point.score === 150,
       ),
     );
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Team comparison validates swaps against all starting slots", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => [
+    ...playerRows,
+    {
+      sleeperPlayerId: "wr1",
+      fullName: "Wide Receiver One",
+      position: "WR",
+      fantasyPositions: ["WR"],
+    },
+    {
+      sleeperPlayerId: "wr2",
+      fullName: "Wide Receiver Two",
+      position: "WR",
+      fantasyPositions: ["WR"],
+    },
+    {
+      sleeperPlayerId: "qb5",
+      fullName: "Backup Quarterback",
+      position: "QB",
+      fantasyPositions: ["QB"],
+    },
+    {
+      sleeperPlayerId: "dual",
+      fullName: "Multi-position Player",
+      position: "RB",
+      fantasyPositions: ["QB", "RB"],
+    },
+    {
+      sleeperPlayerId: "rbwr",
+      fullName: "Running Back and Receiver",
+      position: "RB",
+      fantasyPositions: ["RB", "WR"],
+    },
+    {
+      sleeperPlayerId: "wrte",
+      fullName: "Receiver and Tight End",
+      position: "WR",
+      fantasyPositions: ["WR", "TE"],
+    },
+    ...[
+      ["qb6", "QB"],
+      ["rb5", "RB"],
+      ["te5", "TE"],
+      ["k5", "K"],
+      ["def5", "DEF"],
+      ["dl5", "DL"],
+      ["lb5", "LB"],
+      ["slot-flex", "FLEX"],
+      ["slot-super", "SUPER_FLEX"],
+      ["slot-rec", "REC_FLEX"],
+      ["slot-wrrb", "WRRB_FLEX"],
+    ].map(([sleeperPlayerId, position]) => ({
+      sleeperPlayerId,
+      fullName: sleeperPlayerId,
+      position,
+      fantasyPositions: [position],
+    })),
+  ];
+  const cases = [
+    {
+      name: "FLEX accepts a wide receiver and a negative-scoring starter",
+      positions: ["QB", "FLEX", "BN"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "rb1", benchId: "wr1" },
+      delta: 83,
+    },
+    {
+      name: "FLEX cannot replace the only quarterback",
+      positions: ["QB", "FLEX"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "qb1", benchId: "wr1" },
+    },
+    ...[
+      ["rb5", 11],
+      ["te5", 15],
+    ].map(([benchId, delta]) => ({
+      name: `FLEX accepts ${benchId}`,
+      positions: ["QB", "FLEX"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "rb1", benchId },
+      delta,
+    })),
+    {
+      name: "FLEX rejects a kicker",
+      positions: ["QB", "FLEX"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "rb1", benchId: "k5" },
+    },
+    {
+      name: "SUPER_FLEX accepts a negative-scoring quarterback",
+      positions: ["QB", "SUPER_FLEX"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "rb1", benchId: "qb5" },
+      delta: -4,
+    },
+    ...[
+      ["wr1", 83],
+      ["rb5", 11],
+      ["te5", 15],
+    ].map(([benchId, delta]) => ({
+      name: `SUPER_FLEX accepts ${benchId}`,
+      positions: ["QB", "SUPER_FLEX"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "rb1", benchId },
+      delta,
+    })),
+    {
+      name: "SUPER_FLEX rejects a defense",
+      positions: ["QB", "SUPER_FLEX"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "rb1", benchId: "def5" },
+    },
+    {
+      name: "SUPER_FLEX still requires the dedicated quarterback",
+      positions: ["QB", "SUPER_FLEX"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "qb1", benchId: "wr1" },
+    },
+    {
+      name: "SUPER_FLEX permits rearranging an existing quarterback",
+      positions: ["QB", "SUPER_FLEX"],
+      starters: ["qb1", "qb5"],
+      swap: { starterId: "qb1", benchId: "wr1" },
+      delta: 10,
+    },
+    {
+      name: "multi-position starters can be reassigned",
+      positions: ["QB", "SUPER_FLEX"],
+      starters: ["qb1", "dual"],
+      swap: { starterId: "qb1", benchId: "wr1" },
+      delta: 10,
+    },
+    {
+      name: "a chain of multi-position starters fills reordered flex slots",
+      positions: ["SUPER_FLEX", "FLEX", "WR", "RB", "QB", "BN"],
+      starters: ["qb1", "dual", "rbwr", "wrte", "te5"],
+      swap: { starterId: "te5", benchId: "qb5" },
+      delta: -19,
+    },
+    {
+      name: "a multi-position chain still cannot fill FLEX with three QBs",
+      positions: ["SUPER_FLEX", "FLEX", "WR", "RB", "QB"],
+      starters: ["qb1", "dual", "rbwr", "te5", "qb5"],
+      swap: { starterId: "te5", benchId: "qb6" },
+    },
+    {
+      name: "a multi-position chain cannot fill SUPER_FLEX with a kicker",
+      positions: ["SUPER_FLEX", "FLEX", "WR", "RB", "QB"],
+      starters: ["qb1", "dual", "rbwr", "wrte", "qb5"],
+      swap: { starterId: "qb5", benchId: "k5" },
+    },
+    {
+      name: "repeated QB slots can be filled independently",
+      positions: ["QB", "QB", "RB", "FLEX"],
+      starters: ["qb1", "qb5", "rb1", "wr1"],
+      swap: { starterId: "rb1", benchId: "rb5" },
+      delta: 11,
+    },
+    {
+      name: "a repeated QB slot cannot be replaced with a running back",
+      positions: ["QB", "QB", "RB", "FLEX"],
+      starters: ["qb1", "qb5", "rb1", "wr1"],
+      swap: { starterId: "qb5", benchId: "rb5" },
+    },
+    {
+      name: "REC_FLEX rejects a running back",
+      positions: ["QB", "REC_FLEX"],
+      starters: ["qb1", "wr1"],
+      swap: { starterId: "wr1", benchId: "rb5" },
+    },
+    {
+      name: "REC_FLEX accepts a tight end",
+      positions: ["QB", "REC_FLEX"],
+      starters: ["qb1", "wr1"],
+      swap: { starterId: "wr1", benchId: "te5" },
+      delta: -68,
+    },
+    {
+      name: "WRRB_FLEX accepts a running back",
+      positions: ["QB", "WRRB_FLEX"],
+      starters: ["qb1", "wr1"],
+      swap: { starterId: "wr1", benchId: "rb5" },
+      delta: -72,
+    },
+    {
+      name: "WRRB_FLEX rejects a tight end",
+      positions: ["QB", "WRRB_FLEX"],
+      starters: ["qb1", "wr1"],
+      swap: { starterId: "wr1", benchId: "te5" },
+    },
+    ...[
+      ["FLEX", "slot-flex", "rb1"],
+      ["SUPER_FLEX", "slot-super", "rb1"],
+      ["REC_FLEX", "slot-rec", "wr1"],
+      ["WRRB_FLEX", "slot-wrrb", "wr1"],
+    ].map(([slot, benchId, starterId]) => ({
+      name: `${slot} is a slot, not a player position`,
+      positions: ["QB", slot],
+      starters: ["qb1", starterId],
+      swap: { starterId, benchId },
+    })),
+    {
+      name: "IDP_FLEX accepts a linebacker",
+      positions: ["QB", "IDP_FLEX"],
+      starters: ["qb1", "dl5"],
+      swap: { starterId: "dl5", benchId: "lb5" },
+      delta: 2,
+    },
+    {
+      name: "an already-empty required slot is rejected",
+      positions: ["QB", "FLEX"],
+      starters: ["qb1", "0"],
+      swap: { starterId: "qb1", benchId: "qb5" },
+    },
+    {
+      name: "dedicated positions cannot be filled by the wrong position",
+      positions: ["QB", "RB"],
+      starters: ["qb1", "rb1"],
+      swap: { starterId: "rb1", benchId: "wr1" },
+    },
+    {
+      name: "a defense cannot fill a kicker slot",
+      positions: ["QB", "K"],
+      starters: ["qb1", "k5"],
+      swap: { starterId: "k5", benchId: "def5" },
+    },
+    {
+      name: "a kicker cannot fill a defense slot",
+      positions: ["QB", "DEF"],
+      starters: ["qb1", "def5"],
+      swap: { starterId: "def5", benchId: "k5" },
+    },
+    {
+      name: "the secondary team is also validated",
+      positions: ["QB", "FLEX"],
+      starters: ["qb1", "rb1"],
+      secondarySwap: { starterId: "qb2", benchId: "wr2" },
+    },
+    {
+      name: "a legal secondary team swap is applied",
+      positions: ["QB", "FLEX"],
+      starters: ["qb1", "rb1"],
+      secondarySwap: { starterId: "rb2", benchId: "wr2" },
+      delta: 10,
+    },
+  ];
+
+  try {
+    await Promise.all(
+      cases.map(
+        async ({ name, positions, starters, swap, secondarySwap, delta }) => {
+          const matchups = weeklyMatchups[1].map((matchup) => {
+            if (matchup.rosterId === 1) {
+              return {
+                ...matchup,
+                players: [
+                  "qb1",
+                  "rb1",
+                  "wr1",
+                  "qb5",
+                  "dual",
+                  "rbwr",
+                  "wrte",
+                  "qb6",
+                  "rb5",
+                  "te5",
+                  "k5",
+                  "def5",
+                  "dl5",
+                  "lb5",
+                  "slot-flex",
+                  "slot-super",
+                  "slot-rec",
+                  "slot-wrrb",
+                ],
+                starters,
+                players_points: {
+                  qb1: 70,
+                  rb1: -3,
+                  wr1: 80,
+                  qb5: -7,
+                  dual: 4,
+                  rbwr: 5,
+                  wrte: 6,
+                  qb6: 9,
+                  rb5: 8,
+                  te5: 12,
+                  k5: 3,
+                  def5: 6,
+                  dl5: 4,
+                  lb5: 6,
+                  "slot-flex": 10,
+                  "slot-super": 10,
+                  "slot-rec": 10,
+                  "slot-wrrb": 10,
+                },
+              };
+            }
+            if (matchup.rosterId === 2) {
+              return {
+                ...matchup,
+                players: [...matchup.players, "wr2"],
+                players_points: { ...matchup.players_points, wr2: 20 },
+              };
+            }
+            return matchup;
+          });
+          const result = await calculateTeamComparison({
+            rosters: rosterData,
+            matchupsByWeek: { 1: matchups },
+            primaryRosterId: 1,
+            secondaryRosterId: 2,
+            rosterPositions: positions,
+            weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+            throughWeek: 1,
+            selectedWeek: 1,
+            primarySwap: swap,
+            secondarySwap,
+          });
+
+          if (delta === undefined) {
+            assert.equal(result.data, null, name);
+            assert.equal(
+              result.error.code,
+              "INVALID_TEAM_COMPARISON_SWAP",
+              name,
+            );
+            assert.match(result.error.message, /slots unfilled/, name);
+          } else {
+            assert.equal(result.error, null, name);
+            assert.equal(
+              (secondarySwap
+                ? result.data.scoreDistribution.secondarySwap
+                : result.data.scoreDistribution.primarySwap
+              ).pointsDelta,
+              delta,
+              name,
+            );
+          }
+        },
+      ),
+    );
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Team comparison rejects swaps when remaining starter metadata is missing", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => [
+    ...playerRows.filter((player) => player.sleeperPlayerId !== "qb1"),
+    { sleeperPlayerId: "wr1", fullName: "Bench", position: "WR" },
+  ];
+
+  try {
+    const matchups = weeklyMatchups[1].map((matchup) =>
+      matchup.rosterId === 1
+        ? {
+            ...matchup,
+            players: [...matchup.players, "wr1"],
+            players_points: { ...matchup.players_points, wr1: 80 },
+          }
+        : matchup,
+    );
+    const result = await calculateTeamComparison({
+      rosters: rosterData,
+      matchupsByWeek: { 1: matchups },
+      primaryRosterId: 1,
+      secondaryRosterId: 2,
+      rosterPositions: ["QB", "FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+      primarySwap: { starterId: "rb1", benchId: "wr1" },
+    });
+
+    assert.equal(result.data, null);
+    assert.equal(result.error.code, "INVALID_TEAM_COMPARISON_SWAP");
+    assert.match(result.error.message, /position data is missing/);
   } finally {
     Players.findAll = originalFindAll;
   }

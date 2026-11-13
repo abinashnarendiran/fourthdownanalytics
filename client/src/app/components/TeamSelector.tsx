@@ -153,6 +153,7 @@ export default function TeamSelector({
             disabled:opacity-60 disabled:cursor-not-allowed
             outline-none
             ${selectClassName}`}>
+            
             {!loading &&
               selected &&
               visibleTeams.some(

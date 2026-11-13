@@ -372,6 +372,20 @@ const TeamComparisonDrawer: React.FC<TeamComparisonDrawerProps> = ({
           >
             <p className="font-semibold">Could not load comparison</p>
             <p className="mt-1">{error}</p>
+            {(primarySwap || secondarySwap) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPrimaryStarterId("");
+                  setPrimaryBenchId("");
+                  setSecondaryStarterId("");
+                  setSecondaryBenchId("");
+                }}
+                className="mt-3 rounded-md border border-border px-3 py-1.5 font-medium transition hover:bg-foreground/5 focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                Clear swaps and retry
+              </button>
+            )}
           </div>
         ) : comparison ? (
           <>

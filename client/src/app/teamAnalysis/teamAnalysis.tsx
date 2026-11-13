@@ -570,6 +570,10 @@ const TeamAnalysisView: React.FC<TeamAnalysisViewProps> = ({
               <p className="text-sm text-muted-foreground">
                 Roster depth and scoring compared with the league baseline
               </p>
+              <p className="text-sm text-muted-foreground">
+                Averages include only position-weeks with complete starter
+                scores and known starter positions.
+              </p>
             </div>
             {positions.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">

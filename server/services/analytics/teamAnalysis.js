@@ -1,13 +1,15 @@
 const { Players } = require("../../models");
 const { getLeagueWeeks } = require("../../util/rosterUtils");
 const { success, failure } = require("../../util/result");
-const { getStartingSlots } = require("../../util/lineupUtils");
+const {
+  assignRosterSlots,
+  getStartingSlots,
+} = require("../../util/lineupUtils");
 const { calculateLineupEfficiency } = require("./lineupEfficiency");
 const { calculateLuckIndex } = require("./luckIndex");
 
 const roundToTwoDecimals = (value) => Number(value.toFixed(2));
-const RADAR_POSITIONS = ["QB", "RB", "WR", "TE", "FLEX"];
-const FLEX_SLOTS = new Set(["FLEX", "REC_FLEX", "WRRB_FLEX", "SUPER_FLEX"]);
+const RADAR_POSITIONS = ["QB", "RB", "WR", "TE"];
 
 const normalCumulativeProbability = (value) => {
   const absoluteValue = Math.abs(value);
@@ -51,8 +53,7 @@ const getPlayerPosition = (player) => {
 
 const normalizeRadarSlot = (slot) => {
   const normalizedSlot = slot.toUpperCase();
-  if (RADAR_POSITIONS.includes(normalizedSlot)) return normalizedSlot;
-  return FLEX_SLOTS.has(normalizedSlot) ? "FLEX" : null;
+  return RADAR_POSITIONS.includes(normalizedSlot) ? normalizedSlot : null;
 };
 
 const isCompleteMatchupWeek = (matchups, rosters) => {
@@ -410,6 +411,7 @@ const calculateTeamAnalysis = async ({
   const weeklyLuckHistory = [];
   const scoredWeeksForSchedule = [];
   const teamPointsByPosition = new Map();
+  const teamPositionWeekCounts = new Map();
   const leaguePointsByPosition = new Map();
   const leaguePositionWeekCounts = new Map();
 
@@ -445,38 +447,44 @@ const calculateTeamAnalysis = async ({
       else if (teamPoints === selectedMatchup.opponent_points) actualTies += 1;
     }
 
-    const positionPointsByRoster = new Map();
     matchups.forEach((matchup) => {
-      if (
-        !matchup.players_points ||
-        typeof matchup.players_points !== "object"
-      ) {
-        return;
-      }
-      (matchup.starters || []).forEach((starter) => {
+      if (!Array.isArray(matchup.starters)) return;
+      const positionPoints = new Map();
+      const incompletePositions = new Set();
+      let unknownStarterPosition = false;
+      matchup.starters.forEach((starter) => {
         const playerId = normalizePlayerId(starter);
-        if (!playerId) return;
-        const points = matchup.players_points[playerId];
-        if (!Number.isFinite(points)) return;
+        if (!playerId || playerId === "0") return;
         const player = playersById[playerId];
-        if (!player) return;
-        const position = getPlayerPosition(player);
-        const rosterPoints =
-          positionPointsByRoster.get(String(matchup.rosterId)) || new Map();
-        rosterPoints.set(position, (rosterPoints.get(position) || 0) + points);
-        positionPointsByRoster.set(String(matchup.rosterId), rosterPoints);
+        const position = player ? getPlayerPosition(player) : "UNKNOWN";
+        if (!position || position === "UNKNOWN") {
+          unknownStarterPosition = true;
+          return;
+        }
+        const points = matchup.players_points?.[playerId];
+        if (!Number.isFinite(points)) {
+          incompletePositions.add(position);
+          return;
+        }
+        positionPoints.set(
+          position,
+          (positionPoints.get(position) || 0) + points,
+        );
       });
-    });
-    const selectedPositionPoints =
-      positionPointsByRoster.get(String(rosterId)) || new Map();
-    selectedPositionPoints.forEach((points, position) => {
-      teamPointsByPosition.set(
-        position,
-        (teamPointsByPosition.get(position) || 0) + points,
-      );
-    });
-    positionPointsByRoster.forEach((positionPoints) => {
+      // An unknown starter could belong to any position.
+      if (unknownStarterPosition) return;
       positionPoints.forEach((points, position) => {
+        if (incompletePositions.has(position)) return;
+        if (String(matchup.rosterId) === String(rosterId)) {
+          teamPointsByPosition.set(
+            position,
+            (teamPointsByPosition.get(position) || 0) + points,
+          );
+          teamPositionWeekCounts.set(
+            position,
+            (teamPositionWeekCounts.get(position) || 0) + 1,
+          );
+        }
         leaguePointsByPosition.set(
           position,
           (leaguePointsByPosition.get(position) || 0) + points,
@@ -533,22 +541,24 @@ const calculateTeamAnalysis = async ({
   const positionalOverview = [...positionMap.values()]
     .map((position) => {
       const positionPoints = teamPointsByPosition.get(position.position) || 0;
-      const averagePoints = scoredWeeks > 0 ? positionPoints / scoredWeeks : 0;
+      const teamWeeks = teamPositionWeekCounts.get(position.position) || 0;
+      const leagueWeeks = leaguePositionWeekCounts.get(position.position) || 0;
+      const averagePoints = teamWeeks > 0 ? positionPoints / teamWeeks : null;
       const leagueAveragePoints =
-        (leaguePointsByPosition.get(position.position) || 0) /
-        (leaguePositionWeekCounts.get(position.position) || 1);
+        leagueWeeks > 0
+          ? (leaguePointsByPosition.get(position.position) || 0) / leagueWeeks
+          : null;
       return {
         ...position,
         totalPoints: roundToTwoDecimals(positionPoints),
         averagePoints:
-          scoredWeeks > 0 ? roundToTwoDecimals(averagePoints) : null,
+          averagePoints === null ? null : roundToTwoDecimals(averagePoints),
         leagueAveragePoints:
-          (leaguePositionWeekCounts.get(position.position) || 0) > 0
-            ? roundToTwoDecimals(leagueAveragePoints)
-            : null,
+          leagueAveragePoints === null
+            ? null
+            : roundToTwoDecimals(leagueAveragePoints),
         vsLeagueAverage:
-          scoredWeeks > 0 &&
-          (leaguePositionWeekCounts.get(position.position) || 0) > 0
+          averagePoints !== null && leagueAveragePoints !== null
             ? roundToTwoDecimals(averagePoints - leagueAveragePoints)
             : null,
       };
@@ -817,8 +827,8 @@ const calculateTeamComparison = async ({
   };
   const primarySwapOptions = getSwapOptions(primaryMatchup);
   const secondarySwapOptions = getSwapOptions(secondaryMatchup);
-  const resolveSwap = (swap, options) => {
-    if (!swap) return { points: 0, applied: null };
+  const resolveSwap = (swap, options, matchup) => {
+    if (!swap) return success({ points: 0, applied: null });
     const starter = options.starters.find(
       (player) => player.playerId === String(swap.starterId),
     );
@@ -826,29 +836,67 @@ const calculateTeamComparison = async ({
       (player) => player.playerId === String(swap.benchId),
     );
     if (!starter || !bench) {
-      return { error: "Swap must select a scored starter and bench player." };
+      return failure(
+        "Swap must select a scored starter and bench player.",
+        400,
+        "INVALID_TEAM_COMPARISON_SWAP",
+      );
     }
-    return {
+
+    const starterIds = matchup.starters
+      .map(normalizePlayerId)
+      .filter((id) => id && id !== "0")
+      .map((id) => (id === starter.playerId ? bench.playerId : id));
+    if (starterIds.some((id) => !playerById[id])) {
+      return failure(
+        "Swap cannot be validated because starter position data is missing.",
+        400,
+        "INVALID_TEAM_COMPARISON_SWAP",
+      );
+    }
+    const assignment = assignRosterSlots(
+      { players: starterIds.map((id) => playerById[id]) },
+      rosterPositions,
+      () => 0,
+    );
+    if (assignment.error) return assignment;
+    if (!assignment.data.matchingComplete) {
+      return failure(
+        "Unable to validate the swapped lineup.",
+        500,
+        "TEAM_COMPARISON_LINEUP_VALIDATION_FAILED",
+      );
+    }
+    if (assignment.data.unfilledSlots.length > 0) {
+      return failure(
+        "Swap leaves required starting lineup slots unfilled.",
+        400,
+        "INVALID_TEAM_COMPARISON_SWAP",
+      );
+    }
+    return success({
       points: bench.points - starter.points,
       applied: {
         starterId: starter.playerId,
         benchId: bench.playerId,
         pointsDelta: roundToTwoDecimals(bench.points - starter.points),
       },
-    };
+    });
   };
-  const resolvedPrimarySwap = resolveSwap(primarySwap, primarySwapOptions);
-  const resolvedSecondarySwap = resolveSwap(
+  const primarySwapResult = resolveSwap(
+    primarySwap,
+    primarySwapOptions,
+    primaryMatchup,
+  );
+  if (primarySwapResult.error) return primarySwapResult;
+  const secondarySwapResult = resolveSwap(
     secondarySwap,
     secondarySwapOptions,
+    secondaryMatchup,
   );
-  if (resolvedPrimarySwap.error || resolvedSecondarySwap.error) {
-    return failure(
-      resolvedPrimarySwap.error || resolvedSecondarySwap.error,
-      400,
-      "INVALID_TEAM_COMPARISON_SWAP",
-    );
-  }
+  if (secondarySwapResult.error) return secondarySwapResult;
+  const resolvedPrimarySwap = primarySwapResult.data;
+  const resolvedSecondarySwap = secondarySwapResult.data;
   const primaryPowerScore = roundToTwoDecimals(
     primaryTeam.averages.teamAvg * primaryTeam.scoredWeeks +
       primaryTeam.winAnalysis.actualWins * 5,
