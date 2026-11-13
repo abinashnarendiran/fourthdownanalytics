@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { changePassword } from "@/api/profile";
 import { passwordSchema, type PasswordFormValues } from "@/schemas/profile";
 import { applyServerError, profileStyles as s } from "./styles";
+import { PasswordInput } from "./PasswordInput";
 
 export const SecurityForm = () => {
   const [formError, setFormError] = useState<string | null>(null);
@@ -65,11 +66,9 @@ export const SecurityForm = () => {
           <label htmlFor="current-password" className={s.label}>
             Current password
           </label>
-          <input
+          <PasswordInput
             id="current-password"
-            type="password"
             autoComplete="current-password"
-            className={s.input}
             {...register("currentPassword")}
           />
           {errors.currentPassword && (
@@ -81,11 +80,9 @@ export const SecurityForm = () => {
           <label htmlFor="new-password" className={s.label}>
             New password
           </label>
-          <input
+          <PasswordInput
             id="new-password"
-            type="password"
             autoComplete="new-password"
-            className={s.input}
             {...register("newPassword")}
           />
           {errors.newPassword && (
@@ -97,11 +94,9 @@ export const SecurityForm = () => {
           <label htmlFor="confirm-password" className={s.label}>
             Confirm new password
           </label>
-          <input
+          <PasswordInput
             id="confirm-password"
-            type="password"
             autoComplete="new-password"
-            className={s.input}
             {...register("confirmPassword")}
           />
           {errors.confirmPassword && (
