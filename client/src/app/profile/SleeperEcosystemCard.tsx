@@ -28,7 +28,7 @@ export const SleeperEcosystemCard = ({ sleeper, activeLeagueCount }: Props) => (
         </div>
         <div className="border border-border rounded-md p-4">
           <dt className="text-xs uppercase tracking-wider opacity-50">
-            Active synced leagues
+            Total synced leagues
           </dt>
           <dd className="text-xl font-bold mt-1">{activeLeagueCount}</dd>
         </div>

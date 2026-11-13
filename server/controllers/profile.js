@@ -127,6 +127,9 @@ module.exports.updateProfile = async (req, res) => {
       email: user.email,
     });
   } catch (err) {
+    if (err.name === "SequelizeUniqueConstraintError") {
+      return sendValidationError(res, { email: ["Email already in use"] }, 409);
+    }
     return res.status(500).json({ message: "Failed to update profile" });
   }
 };
