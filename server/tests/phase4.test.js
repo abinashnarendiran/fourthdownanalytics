@@ -5,6 +5,7 @@ const { getTeamIdentity } = require("../util/teamIdentity");
 const { mapSleeperLeague } = require("../util/sleeperLeagueMapper");
 const { assignRosterSlots } = require("../util/lineupUtils");
 const { computeTeamProjections } = require("../services/analytics/common");
+const { calculateOptimalScore } = require("../util/teamAnaylsisHelpersUtil");
 
 test("regular season weeks use playoffWeekStart and playoff rounds remain separate", () => {
   assert.deepEqual(
@@ -144,4 +145,53 @@ test("SUPER_FLEX can reassign a quarterback to maximize the full lineup", () => 
 
 test("team projections remain exported for future use", () => {
   assert.equal(typeof computeTeamProjections, "function");
+});
+
+test("legacy score helpers support combined flex slots without treating them as player positions", () => {
+  const players = [
+    { player_id: "qb1", position: "QB", points: 20 },
+    { player_id: "qb2", position: "QB", points: 10 },
+    { player_id: "rb", position: "RB", points: 15 },
+    { player_id: "wr", position: "WR", points: 12 },
+    { player_id: "te", position: "TE", points: 11 },
+    { player_id: "lb", position: "LB", points: 8 },
+    { player_id: "slot", position: "FLEX", points: 100 },
+  ];
+  const slots = [
+    "QB",
+    "SUPER_FLEX",
+    "FLEX",
+    "REC_FLEX",
+    "WRRB_FLEX",
+    "IDP_FLEX",
+  ];
+  const projections = Object.fromEntries(
+    players.map((player) => [
+      player.player_id,
+      { position: player.position, projectedPoints: player.points },
+    ]),
+  );
+  const rankings = computeTeamProjections(
+    [{ rosterId: 1, players: players.map((player) => player.player_id) }],
+    projections,
+    slots,
+  );
+
+  assert.equal(calculateOptimalScore(players, slots), 76);
+  assert.equal(rankings[0].projectedPoints, 76);
+  assert.equal(
+    calculateOptimalScore(
+      [{ player_id: "qb", position: "QB", points: -2 }],
+      ["QB"],
+    ),
+    -2,
+  );
+  assert.equal(
+    computeTeamProjections(
+      [{ rosterId: 1, players: ["qb"] }],
+      { qb: { position: "QB", projectedPoints: -2 } },
+      ["QB"],
+    )[0].projectedPoints,
+    -2,
+  );
 });

@@ -8,6 +8,10 @@ const { success, failure } = require("../util/result");
 const sleeperAPIURL = "https://api.sleeper.app/v1";
 const sleeperStatsAPIURL = "https://api.sleeper.com";
 const sleeperApi = axios.create({ timeout: 15000 });
+const matchupCache = new Map();
+const matchupRequests = new Map();
+const MATCHUP_CACHE_TTL_MS = 5 * 60 * 1000;
+const MATCHUP_CACHE_MAX_ENTRIES = 100;
 
 const getSleeperPlayerRegularSeasonStats = async (
   playerId,
@@ -240,7 +244,7 @@ const getPreseasonProjections = async (seasonYear, scoringSettings) => {
   }
 };
 
-const getAllMatchups = async (leagueId, weekSettings, throughWeek = null) => {
+const fetchAllMatchups = async (leagueId, weekSettings, throughWeek = null) => {
   try {
     if (!leagueId || !weekSettings || typeof weekSettings !== "object") {
       return failure(
@@ -330,6 +334,61 @@ const getAllMatchups = async (leagueId, weekSettings, throughWeek = null) => {
     return success(matchupsByWeek);
   } catch (error) {
     return failure(error, 500, "SLEEPER_MATCHUPS_PROCESSING_FAILED");
+  }
+};
+
+const getAllMatchups = async (leagueId, weekSettings, throughWeek = null) => {
+  if (!leagueId || !weekSettings || typeof weekSettings !== "object") {
+    return failure(
+      "League ID and week settings are required",
+      400,
+      "INVALID_MATCHUP_REQUEST",
+    );
+  }
+  let totalScoringWeeks;
+  try {
+    ({ totalScoringWeeks } = getLeagueWeeks(weekSettings));
+  } catch (error) {
+    return failure(error, 500, "SLEEPER_MATCHUPS_PROCESSING_FAILED");
+  }
+  const lastWeek =
+    throughWeek === null
+      ? totalScoringWeeks
+      : Math.min(totalScoringWeeks, Number(throughWeek));
+  if (!Number.isInteger(lastWeek) || lastWeek < 0) {
+    return failure(
+      "throughWeek must be a non-negative integer",
+      400,
+      "INVALID_THROUGH_WEEK",
+    );
+  }
+  const cacheKey = `${leagueId}:${lastWeek}`;
+  const cached = matchupCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) return cached.result;
+  if (cached) matchupCache.delete(cacheKey);
+
+  const pendingRequest = matchupRequests.get(cacheKey);
+  if (pendingRequest) return pendingRequest;
+
+  const request = fetchAllMatchups(leagueId, weekSettings, lastWeek).then(
+    (result) => {
+      if (result.error) return result;
+      if (matchupCache.size >= MATCHUP_CACHE_MAX_ENTRIES) {
+        const oldestKey = matchupCache.keys().next().value;
+        if (oldestKey) matchupCache.delete(oldestKey);
+      }
+      matchupCache.set(cacheKey, {
+        result,
+        expiresAt: Date.now() + MATCHUP_CACHE_TTL_MS,
+      });
+      return result;
+    },
+  );
+  matchupRequests.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    matchupRequests.delete(cacheKey);
   }
 };
 const getPlayoffsWinnersBracket = async (leagueId) => {

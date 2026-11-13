@@ -38,6 +38,12 @@ const getEligiblePositions = (slot) => {
   if (nonStartingSlots.has(normalizedSlot)) return [];
   return slotEligibility[normalizedSlot] || [normalizedSlot];
 };
+const getStartingSlots = (rosterPositions) =>
+  rosterPositions
+    .filter((position) => typeof position === "string")
+    .filter((position) => getEligiblePositions(position).length)
+    .map((position) => position.toUpperCase());
+
 const { success, failure } = require("./result");
 
 const addEdge = (graph, from, to, capacity, cost, assignment = null) => {
@@ -94,7 +100,12 @@ const getShortestPath = (graph, source, sink) => {
   };
 };
 
-const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
+const assignRosterSlots = (
+  roster,
+  rosterPositions,
+  getPlayerPoints,
+  fillNegativeSlots = false,
+) => {
   const startedAt = Date.now();
   const rosterId = roster?.rosterId ?? roster?.roster_id ?? null;
 
@@ -137,10 +148,7 @@ const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
       );
     });
 
-    const slots = rosterPositions
-      .filter((position) => typeof position === "string")
-      .filter((position) => getEligiblePositions(position).length)
-      .map((position) => position.toUpperCase());
+    const slots = getStartingSlots(rosterPositions);
 
     let pointsError = null;
     const pointsByPlayer = candidates.map((player, index) => {
@@ -214,7 +222,11 @@ const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
     let path = getShortestPath(graph, source, sink);
     let augmentations = 0;
     let matchingComplete = true;
-    while (path && path.distance <= 0 && matchingComplete) {
+    while (
+      path &&
+      (fillNegativeSlots || path.distance <= 0) &&
+      matchingComplete
+    ) {
       let node = sink;
       const visitedNodes = new Set();
       const pathEdges = [];
@@ -330,4 +342,4 @@ const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
   }
 };
 
-module.exports = { assignRosterSlots };
+module.exports = { assignRosterSlots, getEligiblePositions, getStartingSlots };

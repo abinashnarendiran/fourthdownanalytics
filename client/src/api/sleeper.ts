@@ -1,9 +1,16 @@
 import { api, mapApiResult, request } from "../apiConfig/client";
 import type {
   PowerRankingDTO,
+  SleeperLeagueTeamsResponseDTO,
   SleeperLeagueStatusDTO,
   SleeperSeasonDataResponseDTO,
+  SleeperTeamAnalysisResponseDTO,
+  SleeperTeamComparisonResponseDTO,
 } from "@/types/api/sleeper";
+import type {
+  TeamRosterOption,
+  TeamComparisonSwap,
+} from "@/types/viewModels/teamAnalysis";
 import type {
   CompleteSeasonViewModel,
   DashboardLeagueStatus,
@@ -16,11 +23,19 @@ import type {
 
 export const getSleeperLeagueStatus = async (id: string) => {
   const result = await request<SleeperLeagueStatusDTO>(() =>
-    api.post("/sleeper/getSleeperLeagueStatus", { id }),
+    api.get(`/sleeper/getSleeperLeagueStatus/${encodeURIComponent(id)}`),
   );
-  return mapApiResult(
-    result,
-    (status): DashboardLeagueStatus => ({ ...status }),
+  return mapApiResult(result, (status): DashboardLeagueStatus => ({
+    ...status,
+  }));
+};
+
+export const getSleeperLeagueSeasonTeams = async (id: string) => {
+  const result = await request<SleeperLeagueTeamsResponseDTO>(() =>
+    api.get(`/sleeper/getSleeperLeagueSeasonTeams/${encodeURIComponent(id)}`),
+  );
+  return mapApiResult(result, ({ teams }): TeamRosterOption[] =>
+    teams.map((team) => ({ ...team })),
   );
 };
 
@@ -57,10 +72,56 @@ const mapSeasonData = (
   };
 };
 
-export const getSleeperSeasonData = async (id: string, week: number) => {
+export const getSleeperPowerRankingsSeasonData = async (
+  id: string,
+  week: number,
+) => {
   const result = await request<SleeperSeasonDataResponseDTO>(() =>
-    api.post("/sleeper/getSleeperSeasonData", { id, week }),
+    api.post("/sleeper/getSleeperPowerRankingsSeasonData", { id, week }),
   );
 
   return mapApiResult(result, mapSeasonData);
+};
+
+export const getSleeperTeamAnalysisSeasonData = async (
+  id: string,
+  week: number,
+  rosterId: number,
+  seasonStatus: SleeperLeagueStatusDTO["leagueStatus"],
+  compareTeam: string | null,
+) => {
+  const result = await request<SleeperTeamAnalysisResponseDTO>(() =>
+    api.post("/sleeper/getSleeperTeamAnalysisSeasonData", {
+      id,
+      week,
+      rosterId,
+      seasonStatus,
+      compareTeam,
+    }),
+  );
+
+  return mapApiResult(result, ({ teamAnalysis }) => teamAnalysis);
+};
+
+export const getSleeperTeamComparison = async (
+  id: string,
+  week: number,
+  rosterId: number,
+  compareRosterId: number,
+  seasonStatus: SleeperLeagueStatusDTO["leagueStatus"],
+  primarySwap: TeamComparisonSwap | null = null,
+  secondarySwap: TeamComparisonSwap | null = null,
+) => {
+  const result = await request<SleeperTeamComparisonResponseDTO>(() =>
+    api.post("/sleeper/getSleeperTeamAnalysisSeasonData", {
+      id,
+      week,
+      rosterId,
+      compareRosterId,
+      seasonStatus,
+      primarySwap,
+      secondarySwap,
+    }),
+  );
+  return mapApiResult(result, ({ comparison }) => comparison);
 };

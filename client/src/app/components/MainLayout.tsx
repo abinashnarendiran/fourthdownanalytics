@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { logout } from "../../api/auth";
 
+
 interface MainLayoutProps {
   children: React.ReactNode;
   title?: string;
@@ -63,15 +64,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         </div>
 
         <nav className="flex flex-col gap-1 flex-1">
-          <Link href="/" className={linkStyle("/")}>
-            Dashboard
-          </Link>
-          <Link href="/integrations" className={linkStyle("/integrations")}>
-            Connect Platforms
-          </Link>
-          <Link href="/profile" className={linkStyle("/profile")}>
-            Profile
-          </Link>
+          <Link href="/" className={linkStyle("/")}>Dashboard</Link>
+          <Link href="/integrations" className={linkStyle("/integrations")}>Connect Platforms</Link>
+          <Link href="/teamAnalysis" className={linkStyle("/teamAnalysis")}>Team Analysis</Link>
+          <Link href="/profile" className={linkStyle("/profile")}>Profile</Link>
         </nav>
       </aside>
 

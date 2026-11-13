@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import LeagueSelector from "../components/LeagueSelector";
 import { MainLayout } from "../components/MainLayout";
 import { Protected } from "../components/Protected";
 import type { FantasyLeague } from "@/types/viewModels/integrations";
-import { getSleeperSeasonData, getSleeperLeagueStatus } from "@/api/sleeper";
+import { getSleeperPowerRankingsSeasonData, getSleeperLeagueStatus } from "@/api/sleeper";
 import { LeagueStatusCard } from "../components/LeagueStatusCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import InSeason from "./InSeason/InSeason";
@@ -17,6 +16,7 @@ import type {
   DashboardLeagueStatus,
   DashboardSeasonData,
 } from "@/types/viewModels/dashboard";
+import LeagueSelector from "../components/LeagueSelector";
 
 export const Dashboard = () => {
   const [leagues, setLeagues] = useState<FantasyLeague[]>([]);
@@ -83,7 +83,7 @@ export const Dashboard = () => {
       }
 
       setLeagueMetaData(sleeperStatus[1]);
-      const data = await getSleeperSeasonData(id, selectedWeek);
+      const data = await getSleeperPowerRankingsSeasonData(id, selectedWeek);
       if (data[0] === null) {
         setSeasonData(data[1].league);
       } else {
