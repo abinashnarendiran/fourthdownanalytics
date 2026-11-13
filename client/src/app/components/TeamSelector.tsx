@@ -109,8 +109,7 @@ export default function TeamSelector({
     <div className={`w-full max-w-xs ${className}`}>
       <label
         htmlFor={`team-search-${id}`}
-        className="mb-1 block text-sm font-medium text-foreground"
-      >
+        className="mb-1 block text-sm font-medium text-foreground">
         {label}
       </label>
 
@@ -127,6 +126,7 @@ export default function TeamSelector({
         <div className="relative">
           <select
             id={`team-select-${id}`}
+            aria-label={label}
             disabled={disabled || loading}
             value={selected?.rosterId ?? ""}
             onChange={(e) => {
@@ -152,8 +152,18 @@ export default function TeamSelector({
             transition
             disabled:opacity-60 disabled:cursor-not-allowed
             outline-none
-            ${selectClassName}`}
-          >
+            ${selectClassName}`}>
+            {!loading &&
+              selected &&
+              visibleTeams.some(
+                (team) => team.rosterId === selected.rosterId,
+              ) &&
+              !filteredTeams.some(
+                (team) => team.rosterId === selected.rosterId,
+              ) && (
+                <option value={selected.rosterId}>{selected.teamName}</option>
+              )}
+
             {loading && <option>Loading teams...</option>}
 
             {!loading && allowEmpty && (
@@ -161,7 +171,9 @@ export default function TeamSelector({
             )}
 
             {!loading && filteredTeams.length === 0 && (
-              <option value="" disabled>
+              <option
+                value=""
+                disabled>
                 {visibleTeams.length === 0
                   ? "No teams available"
                   : "No teams match your search"}
@@ -173,8 +185,7 @@ export default function TeamSelector({
                 <option
                   key={t.rosterId}
                   value={t.rosterId}
-                  onMouseEnter={() => onPrefetch?.(t)}
-                >
+                  onMouseEnter={() => onPrefetch?.(t)}>
                   {t.teamName}
                 </option>
               ))}

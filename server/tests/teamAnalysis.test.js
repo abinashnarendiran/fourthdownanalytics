@@ -149,6 +149,96 @@ test("Team Analysis returns fractional all-play wins and player-based positional
   }
 });
 
+test("positional radar uses recorded slots and retains negative starter scores", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () =>
+    [
+      ["q1", "QB"],
+      ["a", "RB"],
+      ["b", "RB"],
+      ["k1", "K"],
+      ["q2", "QB"],
+      ["d", "RB"],
+      ["e", "RB"],
+      ["f", "WR"],
+      ["k2", "K"],
+    ].map(([sleeperPlayerId, position]) => ({
+      sleeperPlayerId,
+      fullName: sleeperPlayerId,
+      position,
+      fantasyPositions: [position],
+    }));
+
+  const rosters = [
+    { rosterId: 1, players: ["q1", "a", "b", "c", "k1"] },
+    { rosterId: 2, players: ["q2", "d", "e", "f", "k2"] },
+  ];
+  const matchupsByWeek = {
+    1: [
+      {
+        rosterId: 1,
+        opponent_id: 2,
+        points: 23,
+        opponent_points: 21,
+        players: ["a", "b", "c", "k1"],
+        starters: ["0", "a", "k1", "b", "c"],
+        players_points: { a: -3, b: 20, c: -2, k1: 8 },
+      },
+      {
+        rosterId: 2,
+        opponent_id: 1,
+        points: 21,
+        opponent_points: 23,
+        players: ["q2", "d", "e", "f", "k2"],
+        starters: ["q2", "d", "k2", "e", "f"],
+        players_points: { q2: 4, d: 6, e: 3, f: 7, k2: 1 },
+      },
+    ],
+    2: [
+      {
+        rosterId: 1,
+        opponent_id: 2,
+        points: 16,
+        opponent_points: 29,
+        players: ["q1", "a", "b", "c", "k1"],
+        starters: ["q1", "a", "k1", "b", "c"],
+        players_points: { q1: 5, a: 0, b: 4, c: -1, k1: 8 },
+      },
+      {
+        rosterId: 2,
+        opponent_id: 1,
+        points: 29,
+        opponent_points: 16,
+        players: ["q2", "d", "e", "f", "k2"],
+        starters: ["q2", "d", "k2", "e", "f"],
+        players_points: { q2: 6, d: 10, e: 10, f: 2, k2: 1 },
+      },
+    ],
+  };
+
+  try {
+    const result = await calculateTeamAnalysis({
+      rosters,
+      matchupsByWeek,
+      rosterId: 1,
+      rosterPositions: ["QB", "BN", "RB", "K", "FLEX", "SUPER_FLEX", "IR"],
+      weekSettings: { playoffWeekStart: 3, playoffTeams: 0 },
+      throughWeek: 2,
+    });
+
+    assert.equal(result.error, null);
+    assert.deepEqual(result.data.team.positionalRadar, [
+      { position: "QB", team: 5, leagueAverage: 5, leagueLeader: 5 },
+      { position: "RB", team: -1.5, leagueAverage: 3.25, leagueLeader: 8 },
+      { position: "WR", team: null, leagueAverage: null, leagueLeader: null },
+      { position: "TE", team: null, leagueAverage: null, leagueLeader: null },
+      { position: "FLEX", team: 10.5, leagueAverage: 10.75, leagueLeader: 11 },
+    ]);
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
 test("Team Analysis returns roster details and zero metrics before matchups exist", async () => {
   const originalFindAll = Players.findAll;
   Players.findAll = async () => playerRows;
@@ -235,6 +325,97 @@ test("Team Analysis keeps score metrics when player scoring data is incomplete",
     assert.match(
       result.data.team.coaching.metadataWarnings[0],
       /incomplete player scores/,
+    );
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Team Analysis ignores missing current reserve and taxi scores for coaching", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => playerRows;
+  const rosters = rosterData.map((roster) =>
+    roster.rosterId === 2
+      ? {
+          ...roster,
+          reserve: [{ sleeperPlayerId: "reserve2" }],
+          taxi: [{ player_id: 123 }],
+        }
+      : roster,
+  );
+  const matchups = weeklyMatchups[1].map((matchup) =>
+    matchup.rosterId === 2
+      ? {
+          ...matchup,
+          players: [...matchup.players, "reserve2", 123],
+          reserve: [],
+          taxi: [],
+          players_points: { ...matchup.players_points, 123: null },
+        }
+      : matchup,
+  );
+
+  try {
+    const result = await calculateTeamAnalysis({
+      rosters,
+      matchupsByWeek: { 1: matchups },
+      rosterId: 1,
+      rosterPositions: ["QB", "FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.data.team.coaching.coachingIQ, 100);
+    assert.equal(result.data.team.coaching.weeksIncluded, 1);
+    assert.equal(result.data.team.coaching.weeksUnavailable, 0);
+    assert.deepEqual(result.data.team.coaching.metadataWarnings, []);
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("Team Analysis requires scores for active bench players and historical starters", async () => {
+  const originalFindAll = Players.findAll;
+  Players.findAll = async () => playerRows;
+
+  try {
+    await Promise.all(
+      [false, true].map(async (historicalStarter) => {
+        const rosters = rosterData.map((roster) =>
+          roster.rosterId === 2 && historicalStarter
+            ? { ...roster, reserve: [{ sleeperPlayerId: "missing2" }] }
+            : roster,
+        );
+        const matchups = weeklyMatchups[1].map((matchup) =>
+          matchup.rosterId === 2
+            ? {
+                ...matchup,
+                players: [...matchup.players, "missing2"],
+                starters: historicalStarter
+                  ? [...matchup.starters, "missing2"]
+                  : matchup.starters,
+                reserve: ["missing2"],
+              }
+            : matchup,
+        );
+        const result = await calculateTeamAnalysis({
+          rosters,
+          matchupsByWeek: { 1: matchups },
+          rosterId: 1,
+          rosterPositions: ["QB", "FLEX"],
+          weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+          throughWeek: 1,
+        });
+
+        assert.equal(result.error, null);
+        assert.equal(result.data.team.coaching.coachingIQ, null);
+        assert.equal(result.data.team.coaching.weeksUnavailable, 1);
+        assert.match(
+          result.data.team.coaching.metadataWarnings[0],
+          /incomplete player scores/,
+        );
+      }),
     );
   } finally {
     Players.findAll = originalFindAll;

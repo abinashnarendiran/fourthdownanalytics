@@ -314,6 +314,7 @@ module.exports.getSleeperPowerRankingsSeasonData = async (req, res) => {
         leagueId,
         displayName: FantasyPlatform.displayName,
         rosters,
+        users,
         config,
         leagueType: type,
         rosterPositions,

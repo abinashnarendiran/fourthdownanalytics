@@ -38,6 +38,12 @@ const getEligiblePositions = (slot) => {
   if (nonStartingSlots.has(normalizedSlot)) return [];
   return slotEligibility[normalizedSlot] || [normalizedSlot];
 };
+const getStartingSlots = (rosterPositions) =>
+  rosterPositions
+    .filter((position) => typeof position === "string")
+    .filter((position) => getEligiblePositions(position).length)
+    .map((position) => position.toUpperCase());
+
 const { success, failure } = require("./result");
 
 const addEdge = (graph, from, to, capacity, cost, assignment = null) => {
@@ -137,10 +143,7 @@ const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
       );
     });
 
-    const slots = rosterPositions
-      .filter((position) => typeof position === "string")
-      .filter((position) => getEligiblePositions(position).length)
-      .map((position) => position.toUpperCase());
+    const slots = getStartingSlots(rosterPositions);
 
     let pointsError = null;
     const pointsByPlayer = candidates.map((player, index) => {
@@ -330,4 +333,4 @@ const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
   }
 };
 
-module.exports = { assignRosterSlots };
+module.exports = { assignRosterSlots, getStartingSlots };

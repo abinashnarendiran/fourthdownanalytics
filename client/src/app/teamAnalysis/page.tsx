@@ -120,6 +120,10 @@ export default function TeamAnalysis() {
         if (oldestKey) requests.delete(oldestKey);
       }
       requests.set(key, request);
+      
+      void request.then(() => {
+         if (requests.get(key) === request) requests.delete(key);
+       });
       return request;
     },
     [],
@@ -331,10 +335,11 @@ export default function TeamAnalysis() {
           preservedCompareId === null ? null : String(preservedCompareId),
       });
       setLoadingAnalysis(
-        leagueMetaData?.leagueStatus !== LEAGUE_STATUS.preDraft.value,
+        leagueMetaData !== null &&
+           leagueMetaData.leagueStatus !== LEAGUE_STATUS.preDraft.value,
       );
       setTeamAnalysisData(null);
-      setError("");
+      if (leagueMetaData) setError("");
       setSelectedTeam(team);
     },
     [leagueMetaData, requestedTeamId, updateQuery],

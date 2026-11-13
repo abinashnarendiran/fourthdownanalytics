@@ -50,7 +50,8 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
         />
       </div>
 
-      {leagueMetaData?.leagueStatus === LEAGUE_STATUS.inSeason.value && (
+      {(leagueMetaData?.leagueStatus === LEAGUE_STATUS.inSeason.value ||
+        leagueMetaData?.leagueStatus === LEAGUE_STATUS.complete.value) && (
         <div className="flex flex-col">
           <CurrentWeekSelector
             currentWeek={selectedWeek}

@@ -1,7 +1,7 @@
 const { Players } = require("../../models");
 const { getLeagueWeeks } = require("../../util/rosterUtils");
 const { success, failure } = require("../../util/result");
-const { assignRosterSlots } = require("../../util/lineupUtils");
+const { getStartingSlots } = require("../../util/lineupUtils");
 const { calculateLineupEfficiency } = require("./lineupEfficiency");
 const { calculateLuckIndex } = require("./luckIndex");
 
@@ -75,22 +75,38 @@ const isCompleteMatchupWeek = (matchups, rosters) => {
   });
 };
 
-const hasCompletePlayerScores = (matchups) =>
-  matchups.every(
-    (matchup) =>
-      Array.isArray(matchup.players) &&
-      Array.isArray(matchup.starters) &&
-      matchup.players_points &&
-      typeof matchup.players_points === "object" &&
-      !Array.isArray(matchup.players_points) &&
-      [
-        ...new Set(
-          [...matchup.players, ...matchup.starters]
-            .map(normalizePlayerId)
-            .filter((playerId) => playerId && playerId !== "0"),
-        ),
-      ].every((playerId) => Number.isFinite(matchup.players_points[playerId])),
-  );
+const hasCompletePlayerScores = (matchups, rosters) =>
+  matchups.every((matchup) => {
+    if (
+      !Array.isArray(matchup.players) ||
+      !Array.isArray(matchup.starters) ||
+      !matchup.players_points ||
+      typeof matchup.players_points !== "object" ||
+      Array.isArray(matchup.players_points)
+    ) {
+      return false;
+    }
+
+    const roster = rosters.find(
+      (team) => String(team.rosterId) === String(matchup.rosterId),
+    );
+    const excludedIds = new Set(
+      [...(roster.reserve || []), ...(roster.taxi || [])]
+        .map(normalizePlayerId)
+        .filter(Boolean),
+    );
+    const hasScore = (playerId) => {
+      const id = normalizePlayerId(playerId);
+      return !id || id === "0" || Number.isFinite(matchup.players_points[id]);
+    };
+
+    return (
+      matchup.starters.every(hasScore) &&
+      matchup.players
+        .filter((playerId) => !excludedIds.has(normalizePlayerId(playerId)))
+        .every(hasScore)
+    );
+  });
 
 const calculateScheduleLuck = (
   rosters,
@@ -159,13 +175,13 @@ const calculatePositionalRadar = (
   matchupsByWeek,
   availableWeeks,
   rosterPositions,
-  playersById,
   selectedRosterId,
 ) => {
   const pointsByRoster = new Map();
   const weeksByRoster = new Map();
+  const startingSlots = getStartingSlots(rosterPositions);
   const axisIsConfigured = new Set(
-    rosterPositions.map(normalizeRadarSlot).filter(Boolean),
+    startingSlots.map(normalizeRadarSlot).filter(Boolean),
   );
 
   availableWeeks.forEach((week) => {
@@ -174,30 +190,20 @@ const calculatePositionalRadar = (
 
     matchups.forEach((matchup) => {
       const rosterId = String(matchup.rosterId);
-      const starters = (matchup.starters || [])
-        .map(normalizePlayerId)
-        .filter(
-          (playerId) =>
-            playerId && Number.isFinite(matchup.players_points?.[playerId]),
-        )
-        .map((playerId) => playersById[playerId])
-        .filter(Boolean);
-
-      const assignmentResult = assignRosterSlots(
-        { players: starters, starters: [], reserve: [], taxi: [] },
-        rosterPositions,
-        (player) => matchup.players_points[String(player.sleeperPlayerId)],
-      );
-      if (assignmentResult.error) return;
-
       const weeklyPoints = new Map();
-      assignmentResult.data.assignments.forEach((assignment) => {
-        const axis = normalizeRadarSlot(assignment.slot);
-        if (!axis) return;
-        weeklyPoints.set(
-          axis,
-          (weeklyPoints.get(axis) || 0) + assignment.points,
-        );
+      startingSlots.forEach((slot, index) => {
+        const axis = normalizeRadarSlot(slot);
+        const playerId = normalizePlayerId(matchup.starters?.[index]);
+        const points = matchup.players_points?.[playerId];
+        if (
+          !axis ||
+          !playerId ||
+          playerId === "0" ||
+          !Number.isFinite(points)
+        ) {
+          return;
+        }
+        weeklyPoints.set(axis, (weeklyPoints.get(axis) || 0) + points);
       });
 
       const rosterTotals = pointsByRoster.get(rosterId) || new Map();
@@ -364,7 +370,7 @@ const calculateTeamAnalysis = async ({
   const lineupMatchupsByWeek = Object.fromEntries(
     availableWeeks.map((week) => {
       const matchups = completeMatchupsByWeek[String(week)] || [];
-      if (matchups.length > 0 && !hasCompletePlayerScores(matchups)) {
+      if (matchups.length > 0 && !hasCompletePlayerScores(matchups, rosters)) {
         incompletePlayerWeeks += 1;
         return [String(week), []];
       }
@@ -559,7 +565,6 @@ const calculateTeamAnalysis = async ({
     completeMatchupsByWeek,
     availableWeeks,
     rosterPositions,
-    playersById,
     rosterId,
   );
 
@@ -775,8 +780,14 @@ const calculateTeamComparison = async ({
     const starters = new Set(
       matchup.starters.map(normalizePlayerId).filter(Boolean),
     );
+    const roster = rosters.find(
+      (team) => String(team.rosterId) === String(matchup.rosterId),
+    );
     const reserves = new Set(
-      [...(matchup.reserve || []), ...(matchup.taxi || [])]
+      [
+        ...(matchup.reserve ?? roster?.reserve ?? []),
+        ...(matchup.taxi ?? roster?.taxi ?? []),
+      ]
         .map(normalizePlayerId)
         .filter(Boolean),
     );
@@ -891,10 +902,9 @@ const calculateTeamComparison = async ({
               const zScore = (score - mean) / standardDeviation;
               return {
                 score: roundToTwoDecimals(score),
-                density: roundToTwoDecimals(
+                density:
                   Math.exp(-0.5 * zScore * zScore) /
-                    (standardDeviation * Math.sqrt(2 * Math.PI)),
-                ),
+                  (standardDeviation * Math.sqrt(2 * Math.PI)),
               };
             });
     return { mean, standardDeviation, points };

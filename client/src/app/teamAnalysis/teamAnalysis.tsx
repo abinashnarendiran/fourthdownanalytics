@@ -73,7 +73,7 @@ const getRadarPolygon = (
   values
     .map((value, index) => {
       const angle = -Math.PI / 2 + (index * 2 * Math.PI) / values.length;
-      const distance = ((value ?? 0) / maximum) * radius;
+      const distance = (Math.max(value ?? 0, 0) / maximum) * radius;
       return `${center + Math.cos(angle) * distance},${center + Math.sin(angle) * distance}`;
     })
     .join(" ");
@@ -449,11 +449,20 @@ const TeamAnalysisView: React.FC<TeamAnalysisViewProps> = ({
                 Mean actual starter points per week against the league average
                 and league leader.
               </p>
+              {radar.some((axis) =>
+                [axis.team, axis.leagueAverage, axis.leagueLeader].some(
+                  (value) => value !== null && value < 0,
+                ),
+              ) && (
+                <p className="text-sm text-muted-foreground">
+                  Negative values are plotted at the center.
+                </p>
+              )}
             </div>
             {!anyRadarData ? (
               <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
                 Positional radar metrics are unavailable until starter and
-                player position data are recorded.
+                player score data are recorded.
               </div>
             ) : (
               <div className="flex flex-col items-center gap-4 sm:flex-row">
