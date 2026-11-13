@@ -10,14 +10,45 @@ export const api = axios.create({
 
 export type ApiResult<T = unknown> = [Error, null] | [null, T];
 
+export type FieldErrors = Record<string, string[]>;
+
+export class ApiError extends Error {
+  fieldErrors?: FieldErrors;
+
+  constructor(message: string, fieldErrors?: FieldErrors) {
+    super(message);
+    this.name = "ApiError";
+    this.fieldErrors = fieldErrors;
+  }
+}
+
 interface ApiErrorResponse {
   message?: unknown;
+  fieldErrors?: unknown;
 }
+
+const parseFieldErrors = (value: unknown): FieldErrors | undefined => {
+  if (typeof value !== "object" || value === null) return undefined;
+  const result: FieldErrors = {};
+  Object.entries(value).forEach(([key, messages]) => {
+    if (Array.isArray(messages)) {
+      result[key] = messages.filter(
+        (m): m is string => typeof m === "string",
+      );
+    }
+  });
+  return result;
+};
 
 const toRequestError = (error: unknown): Error => {
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
     const responseMessage = error.response?.data?.message;
-    if (typeof responseMessage === "string") return new Error(responseMessage);
+    if (typeof responseMessage === "string") {
+      const fieldErrors = parseFieldErrors(error.response?.data?.fieldErrors);
+      return fieldErrors
+        ? new ApiError(responseMessage, fieldErrors)
+        : new Error(responseMessage);
+    }
     if (error.message) return new Error(error.message);
   }
 
