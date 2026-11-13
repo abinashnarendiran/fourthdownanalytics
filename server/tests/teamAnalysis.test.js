@@ -110,7 +110,7 @@ test("Team Analysis returns fractional all-play wins and player-based positional
       })),
       [
         { position: "QB", team: 70 },
-        { position: "RB", team: null },
+        { position: "RB", team: 30 },
         { position: "WR", team: null },
         { position: "TE", team: null },
       ],
@@ -155,6 +155,7 @@ test("positional radar uses recorded slots and retains negative starter scores",
       ["q1", "QB"],
       ["a", "RB"],
       ["b", "RB"],
+      ["c", "TE"],
       ["k1", "K"],
       ["q2", "QB"],
       ["d", "RB"],
@@ -228,9 +229,9 @@ test("positional radar uses recorded slots and retains negative starter scores",
     assert.equal(result.error, null);
     assert.deepEqual(result.data.team.positionalRadar, [
       { position: "QB", team: 5, leagueAverage: 5, leagueLeader: 5 },
-      { position: "RB", team: -1.5, leagueAverage: 3.25, leagueLeader: 8 },
-      { position: "WR", team: null, leagueAverage: null, leagueLeader: null },
-      { position: "TE", team: null, leagueAverage: null, leagueLeader: null },
+      { position: "RB", team: 10.5, leagueAverage: 12.5, leagueLeader: 14.5 },
+      { position: "WR", team: null, leagueAverage: 4.5, leagueLeader: 4.5 },
+      { position: "TE", team: -1.5, leagueAverage: -1.5, leagueLeader: -1.5 },
     ]);
   } finally {
     Players.findAll = originalFindAll;
@@ -405,6 +406,12 @@ test("positional averages use only complete roster-weeks for each position", asy
     assert.equal(rb.averagePoints, 20);
     assert.equal(rb.leagueAveragePoints, 11.43);
     assert.equal(rb.vsLeagueAverage, 8.57);
+    const radarRb = allWeeks.data.team.positionalRadar.find(
+      (position) => position.position === "RB",
+    );
+    assert.equal(radarRb.team, 20);
+    assert.equal(radarRb.leagueAverage, 11.25);
+    assert.equal(radarRb.leagueLeader, 20);
     const qb = allWeeks.data.team.positionalOverview.find(
       (position) => position.position === "QB",
     );
@@ -426,6 +433,102 @@ test("positional averages use only complete roster-weeks for each position", asy
     assert.equal(missingLeagueRb.averagePoints, null);
     assert.equal(missingLeagueRb.leagueAveragePoints, null);
     assert.equal(missingLeagueRb.vsLeagueAverage, null);
+  } finally {
+    Players.findAll = originalFindAll;
+  }
+});
+
+test("positional radar attributes all flex slot variants to native positions", async () => {
+  const originalFindAll = Players.findAll;
+  const rows = [
+    ["q1", "QB"],
+    ["r1", "RB"],
+    ["t1", "TE"],
+    ["w1", "WR"],
+    ["q1b", "QB"],
+    ["q2", "QB"],
+    ["w2", "WR"],
+    ["w2b", "WR"],
+    ["r2", "RB"],
+    ["t2", "TE"],
+  ].map(([sleeperPlayerId, position]) => ({
+    sleeperPlayerId,
+    fullName: sleeperPlayerId,
+    position,
+    fantasyPositions: [position],
+  }));
+  Players.findAll = async () => rows;
+  const rosters = [
+    { rosterId: 1, players: ["q1", "r1", "t1", "w1", "q1b"] },
+    { rosterId: 2, players: ["q2", "w2", "w2b", "r2", "t2"] },
+  ];
+  const matchups = [
+    {
+      rosterId: 1,
+      opponent_id: 2,
+      points: 42,
+      opponent_points: 23,
+      players: rosters[0].players,
+      starters: rosters[0].players,
+      players_points: { q1: 10, r1: -3, t1: 8, w1: 20, q1b: 7 },
+    },
+    {
+      rosterId: 2,
+      opponent_id: 1,
+      points: 23,
+      opponent_points: 42,
+      players: rosters[1].players,
+      starters: rosters[1].players,
+      players_points: { q2: 10, w2: 0, w2b: 5, r2: 12, t2: -4 },
+    },
+  ];
+
+  try {
+    const result = await calculateTeamAnalysis({
+      rosters,
+      matchupsByWeek: { 1: matchups },
+      rosterId: 1,
+      rosterPositions: ["QB", "FLEX", "REC_FLEX", "WRRB_FLEX", "SUPER_FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+    });
+
+    assert.equal(result.error, null);
+    assert.deepEqual(result.data.team.positionalRadar, [
+      { position: "QB", team: 17, leagueAverage: 13.5, leagueLeader: 17 },
+      { position: "RB", team: -3, leagueAverage: 4.5, leagueLeader: 12 },
+      { position: "WR", team: 20, leagueAverage: 12.5, leagueLeader: 20 },
+      { position: "TE", team: 8, leagueAverage: 2, leagueLeader: 8 },
+    ]);
+
+    Players.findAll = async () =>
+      rows.map((row) =>
+        row.sleeperPlayerId === "w1"
+          ? { ...row, position: "WRRB_FLEX", fantasyPositions: ["WRRB_FLEX"] }
+          : row,
+      );
+    const unknownPosition = await calculateTeamAnalysis({
+      rosters,
+      matchupsByWeek: { 1: matchups },
+      rosterId: 1,
+      rosterPositions: ["QB", "FLEX", "REC_FLEX", "WRRB_FLEX", "SUPER_FLEX"],
+      weekSettings: { playoffWeekStart: 2, playoffTeams: 0 },
+      throughWeek: 1,
+    });
+    assert.equal(unknownPosition.error, null);
+    assert.deepEqual(unknownPosition.data.team.positionalRadar, [
+      { position: "QB", team: 17, leagueAverage: 13.5, leagueLeader: 17 },
+      { position: "RB", team: null, leagueAverage: 12, leagueLeader: 12 },
+      { position: "WR", team: null, leagueAverage: 5, leagueLeader: 5 },
+      { position: "TE", team: 8, leagueAverage: 2, leagueLeader: 8 },
+    ]);
+    assert.ok(
+      unknownPosition.data.team.positionalOverview.some(
+        (position) =>
+          position.position === "UNKNOWN" &&
+          position.players.some((player) => player.playerId === "w1"),
+      ),
+    );
   } finally {
     Players.findAll = originalFindAll;
   }

@@ -100,14 +100,6 @@ const attachUsersToRosters = (rosters, users) => {
   }
 };
 
-const getLineupSlots = (rosterPositions) =>
-  rosterPositions.reduce(
-    (counts, pos) => ({
-      ...counts,
-      [pos]: (counts[pos] || 0) + 1,
-    }),
-    {},
-  );
 // Helper to calculate league weeks
 const getLeagueWeeks = (settings) => {
   const playoffStart = settings.playoffWeekStart || 15;
@@ -131,6 +123,5 @@ const getLeagueWeeks = (settings) => {
 module.exports = {
   enrichRosters,
   attachUsersToRosters,
-  getLineupSlots,
   getLeagueWeeks,
 };

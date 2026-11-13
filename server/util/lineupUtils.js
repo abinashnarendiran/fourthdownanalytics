@@ -100,7 +100,12 @@ const getShortestPath = (graph, source, sink) => {
   };
 };
 
-const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
+const assignRosterSlots = (
+  roster,
+  rosterPositions,
+  getPlayerPoints,
+  fillNegativeSlots = false,
+) => {
   const startedAt = Date.now();
   const rosterId = roster?.rosterId ?? roster?.roster_id ?? null;
 
@@ -217,7 +222,11 @@ const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
     let path = getShortestPath(graph, source, sink);
     let augmentations = 0;
     let matchingComplete = true;
-    while (path && path.distance <= 0 && matchingComplete) {
+    while (
+      path &&
+      (fillNegativeSlots || path.distance <= 0) &&
+      matchingComplete
+    ) {
       let node = sink;
       const visitedNodes = new Set();
       const pathEdges = [];
@@ -333,4 +342,4 @@ const assignRosterSlots = (roster, rosterPositions, getPlayerPoints) => {
   }
 };
 
-module.exports = { assignRosterSlots, getStartingSlots };
+module.exports = { assignRosterSlots, getEligiblePositions, getStartingSlots };

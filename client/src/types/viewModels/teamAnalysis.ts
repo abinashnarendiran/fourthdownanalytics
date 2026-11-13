@@ -44,7 +44,7 @@ export interface ScheduleLuckDistribution {
 }
 
 export interface TeamAnalysisRadarAxis {
-  position: "QB" | "RB" | "WR" | "TE" | "FLEX";
+  position: "QB" | "RB" | "WR" | "TE";
   team: number | null;
   leagueAverage: number | null;
   leagueLeader: number | null;

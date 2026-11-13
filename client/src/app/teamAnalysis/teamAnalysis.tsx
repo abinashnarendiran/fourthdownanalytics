@@ -446,8 +446,8 @@ const TeamAnalysisView: React.FC<TeamAnalysisViewProps> = ({
                 Positional Starter Quality
               </h3>
               <p className="text-sm text-muted-foreground">
-                Mean actual starter points per week against the league average
-                and league leader.
+                Mean actual starter points per week, including flex starters
+                by player position, against the league average and leader.
               </p>
               {radar.some((axis) =>
                 [axis.team, axis.leagueAverage, axis.leagueLeader].some(

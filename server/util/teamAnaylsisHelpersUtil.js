@@ -1,71 +1,28 @@
+const { assignRosterSlots } = require("./lineupUtils");
+
 /**
  * Given a roster's players for a specific week (with their actual points),
  * calculates the highest-scoring valid lineup based on league slot settings.
  *
  * @param {Array} playerScores - Array of { player_id, position, points } for the week
- * @param {Object} rosterPositions - e.g. { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, BN: 6 }
+ * @param {Array<string>} rosterPositions - e.g. ["QB", "RB", "FLEX", "BN"]
  * @returns {number} The optimal (maximum possible) score
  */
 /**
  * Best Ball Logic: Calculates the highest possible score based on roster requirements.
  */
 const calculateOptimalScore = (playerScores, rosterPositions) => {
-  // 1. Identify requirements (e.g., { QB: 2, RB: 2, WR: 3, TE: 1, FLEX: 2 })
-  const requirements = {};
-  const startingSlots = rosterPositions.filter((pos) => pos !== "BN");
-
-  startingSlots.forEach((pos) => {
-    requirements[pos] = (requirements[pos] || 0) + 1;
-  });
-
-  // 2. Sort all players by points descending
-  const sortedPlayers = [...playerScores].sort((a, b) => b.points - a.points);
-  const usedPlayerIds = new Set();
-  let totalOptimal = 0;
-
-  // 3. Fill specific positions first (QB, RB, WR, TE, DEF)
-  const positionCategories = Object.keys(requirements).filter(
-    (req) => req !== "FLEX",
+  const result = assignRosterSlots(
+    { players: playerScores },
+    rosterPositions,
+    (player) => player.points,
+    true,
   );
-
-  positionCategories.forEach((pos) => {
-    let slotsToFill = requirements[pos];
-
-    // eslint-disable-next-line no-restricted-syntax
-    for (const player of sortedPlayers) {
-      if (
-        slotsToFill > 0 &&
-        player.position === pos &&
-        !usedPlayerIds.has(player.player_id)
-      ) {
-        totalOptimal += player.points;
-        usedPlayerIds.add(player.player_id);
-        slotsToFill -= 1;
-      }
-    }
-  });
-
-  // 4. Fill FLEX slots with the remaining highest scorers (usually RB/WR/TE)
-  if (requirements.FLEX) {
-    let flexSlots = requirements.FLEX;
-    const flexEligiblePos = ["RB", "WR", "TE"];
-
-    // eslint-disable-next-line no-restricted-syntax
-    for (const player of sortedPlayers) {
-      if (
-        flexSlots > 0 &&
-        flexEligiblePos.includes(player.position) &&
-        !usedPlayerIds.has(player.player_id)
-      ) {
-        totalOptimal += player.points;
-        usedPlayerIds.add(player.player_id);
-        flexSlots -= 1;
-      }
-    }
+  if (result.error) throw new Error(result.error.message);
+  if (!result.data.matchingComplete) {
+    throw new Error("Unable to calculate optimal score");
   }
-
-  // Round to 2 decimal places to match fantasy scoring
-  return Math.round(totalOptimal * 100) / 100;
+  return Math.round(result.data.totalPoints * 100) / 100;
 };
 
 const calculateLuckIndex = (matchupsByWeek, rosterId) => {

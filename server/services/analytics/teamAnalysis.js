@@ -3,6 +3,7 @@ const { getLeagueWeeks } = require("../../util/rosterUtils");
 const { success, failure } = require("../../util/result");
 const {
   assignRosterSlots,
+  getEligiblePositions,
   getStartingSlots,
 } = require("../../util/lineupUtils");
 const { calculateLineupEfficiency } = require("./lineupEfficiency");
@@ -10,6 +11,7 @@ const { calculateLuckIndex } = require("./luckIndex");
 
 const roundToTwoDecimals = (value) => Number(value.toFixed(2));
 const RADAR_POSITIONS = ["QB", "RB", "WR", "TE"];
+const FLEX_SLOTS = new Set(["FLEX", "REC_FLEX", "WRRB_FLEX", "SUPER_FLEX"]);
 
 const normalCumulativeProbability = (value) => {
   const absoluteValue = Math.abs(value);
@@ -39,16 +41,19 @@ const normalizePlayerId = (playerId) => {
 };
 
 const getPlayerPosition = (player) => {
-  if (typeof player.position === "string" && player.position.trim()) {
-    return player.position.trim().toUpperCase();
-  }
-  if (
-    Array.isArray(player.fantasyPositions) &&
-    typeof player.fantasyPositions[0] === "string"
-  ) {
-    return player.fantasyPositions[0].trim().toUpperCase();
-  }
-  return "UNKNOWN";
+  const positions = [
+    player.position,
+    ...(Array.isArray(player.fantasyPositions) ? player.fantasyPositions : []),
+  ];
+  return (
+    positions
+      .filter((position) => typeof position === "string")
+      .map((position) => position.trim().toUpperCase())
+      .find(
+        (position) =>
+          position && !FLEX_SLOTS.has(position) && position !== "IDP_FLEX",
+      ) || "UNKNOWN"
+  );
 };
 
 const normalizeRadarSlot = (slot) => {
@@ -176,13 +181,20 @@ const calculatePositionalRadar = (
   matchupsByWeek,
   availableWeeks,
   rosterPositions,
+  playersById,
   selectedRosterId,
 ) => {
   const pointsByRoster = new Map();
   const weeksByRoster = new Map();
   const startingSlots = getStartingSlots(rosterPositions);
   const axisIsConfigured = new Set(
-    startingSlots.map(normalizeRadarSlot).filter(Boolean),
+    startingSlots.flatMap((slot) =>
+      FLEX_SLOTS.has(slot)
+        ? getEligiblePositions(slot).filter((position) =>
+            RADAR_POSITIONS.includes(position),
+          )
+        : [normalizeRadarSlot(slot)].filter(Boolean),
+    ),
   );
 
   availableWeeks.forEach((week) => {
@@ -192,16 +204,27 @@ const calculatePositionalRadar = (
     matchups.forEach((matchup) => {
       const rosterId = String(matchup.rosterId);
       const weeklyPoints = new Map();
+      const incompleteAxes = new Set();
       startingSlots.forEach((slot, index) => {
-        const axis = normalizeRadarSlot(slot);
         const playerId = normalizePlayerId(matchup.starters?.[index]);
+        if (!playerId || playerId === "0") return;
+        const eligibleAxes = FLEX_SLOTS.has(slot)
+          ? getEligiblePositions(slot).filter((position) =>
+              RADAR_POSITIONS.includes(position),
+            )
+          : [normalizeRadarSlot(slot)].filter(Boolean);
+        if (eligibleAxes.length === 0) return;
+        const player = playersById[playerId];
+        const axis = FLEX_SLOTS.has(slot)
+          ? player && getPlayerPosition(player)
+          : eligibleAxes[0];
+        if (!axis || !eligibleAxes.includes(axis)) {
+          eligibleAxes.forEach((position) => incompleteAxes.add(position));
+          return;
+        }
         const points = matchup.players_points?.[playerId];
-        if (
-          !axis ||
-          !playerId ||
-          playerId === "0" ||
-          !Number.isFinite(points)
-        ) {
+        if (!Number.isFinite(points)) {
+          incompleteAxes.add(axis);
           return;
         }
         weeklyPoints.set(axis, (weeklyPoints.get(axis) || 0) + points);
@@ -210,7 +233,7 @@ const calculatePositionalRadar = (
       const rosterTotals = pointsByRoster.get(rosterId) || new Map();
       const rosterWeeks = weeksByRoster.get(rosterId) || new Map();
       axisIsConfigured.forEach((axis) => {
-        if (!weeklyPoints.has(axis)) return;
+        if (!weeklyPoints.has(axis) || incompleteAxes.has(axis)) return;
         rosterTotals.set(
           axis,
           (rosterTotals.get(axis) || 0) + weeklyPoints.get(axis),
@@ -575,6 +598,7 @@ const calculateTeamAnalysis = async ({
     completeMatchupsByWeek,
     availableWeeks,
     rosterPositions,
+    playersById,
     rosterId,
   );
 
