@@ -1,5 +1,9 @@
+import { createRequire } from "node:module";
+import { test } from "vitest";
+
+const require = createRequire(import.meta.url);
+
 const assert = require("node:assert/strict");
-const { test } = require("node:test");
 const { getLeagueWeeks } = require("../util/rosterUtils");
 const { getTeamIdentity } = require("../util/teamIdentity");
 const { mapSleeperLeague } = require("../util/sleeperLeagueMapper");
@@ -71,6 +75,27 @@ test("Sleeper league mapper preserves the integration configuration shape", () =
   });
   assert.equal(result.config.playoffWeekStart, 15);
   assert.equal(result.config.playoffRoundType, 1);
+});
+
+test("Sleeper league mapper supplies safe defaults when settings are absent", () => {
+  const result = mapSleeperLeague(
+    {
+      league_id: "league-without-settings",
+      name: "League",
+      season: "2025",
+      total_rosters: 12,
+      roster_positions: ["QB"],
+      scoring_settings: {},
+      settings: null,
+    },
+    null,
+  );
+
+  assert.equal(result.type, "Unknown");
+  assert.equal(result.config.playoffWeekStart, 15);
+  assert.equal(result.config.taxiSlots, 0);
+  assert.equal(result.config.IRSlots, 0);
+  assert.equal(result.config.draft.draftId, "");
 });
 
 test("team identity preserves feature-specific fallback behavior", () => {

@@ -5,6 +5,7 @@ const leagueTypeMap = {
 };
 
 const mapSleeperLeague = (league, draftData) => {
+  const settings = league.settings || {};
   const draftSettings = {
     draftId: "",
     type: null,
@@ -29,10 +30,7 @@ const mapSleeperLeague = (league, draftData) => {
     leagueId: league.league_id,
     leagueName: league.name,
     seasonYear: parseInt(league.season, 10),
-    type:
-      league.settings?.type != null
-        ? leagueTypeMap[league.settings.type]
-        : "Unknown",
+    type: settings.type != null ? leagueTypeMap[settings.type] : "Unknown",
     config: {
       scoringType,
       totalRosters: league.total_rosters,
@@ -40,18 +38,18 @@ const mapSleeperLeague = (league, draftData) => {
       scoringSettings: league.scoring_settings,
       draft: draftSettings,
       waiver: {
-        type: league.settings?.waiver_type || null,
-        budget: league.settings?.waiver_budget || null,
+        type: settings.waiver_type || null,
+        budget: settings.waiver_budget || null,
       },
-      taxiSlots: league.settings?.taxi_slots || 0,
-      IRSlots: league.settings?.reserve_slots || 0,
-      playoffWeekStart: league.settings.playoff_week_start || 15,
-      playoffType: league.settings.playoff_type,
-      playoffSeedType: league.settings.playoff_seed_type,
-      playoffTeams: league.settings.playoff_teams,
-      playoffRoundType: league.settings.playoff_round_type,
-      tradeDeadline: league.settings.trade_deadline,
-      wavierType: league.settings.waiver_type,
+      taxiSlots: settings.taxi_slots || 0,
+      IRSlots: settings.reserve_slots || 0,
+      playoffWeekStart: settings.playoff_week_start || 15,
+      playoffType: settings.playoff_type,
+      playoffSeedType: settings.playoff_seed_type,
+      playoffTeams: settings.playoff_teams,
+      playoffRoundType: settings.playoff_round_type,
+      tradeDeadline: settings.trade_deadline,
+      wavierType: settings.waiver_type,
     },
   };
 };

@@ -1,0 +1,22 @@
+[
+  {
+    "matchup_id": 1,
+    "roster_id": 1,
+    "points": 100,
+    "starters": ["player-qb"],
+    "players": ["player-qb"],
+    "players_points": {
+      "player-qb": 100
+    }
+  },
+  {
+    "matchup_id": 1,
+    "roster_id": 2,
+    "points": 90,
+    "starters": ["player-rb"],
+    "players": ["player-rb"],
+    "players_points": {
+      "player-rb": 90
+    }
+  }
+]

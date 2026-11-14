@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "node --test",
+    "test": "vitest run",
     "lint": "eslint . --ext .js,.ts,.tsx,.mjs,.cjs",
     "lint:fix": "eslint . --ext .js,.ts,.tsx,.mjs,.cjs --fix",
     "format": "prettier --write ."
@@ -37,6 +37,7 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-prettier": "^5.5.5",
     "nodemon": "^3.1.11",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "vitest": "^2.1.9"
   }
 }

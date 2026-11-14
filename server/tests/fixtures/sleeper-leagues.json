@@ -1,0 +1,26 @@
+[
+  {
+    "league_id": "league-2025",
+    "name": "Fixture League",
+    "season": "2025",
+    "status": "in_season",
+    "total_rosters": 2,
+    "roster_positions": ["QB", "RB", "WR", "TE", "FLEX"],
+    "scoring_settings": {
+      "pass_yd": 0.04
+    },
+    "settings": {
+      "type": 2,
+      "waiver_type": 1,
+      "waiver_budget": 100,
+      "taxi_slots": 2,
+      "reserve_slots": 1,
+      "playoff_week_start": 15,
+      "playoff_type": 0,
+      "playoff_seed_type": 0,
+      "playoff_teams": 2,
+      "playoff_round_type": 1,
+      "trade_deadline": 12
+    }
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "user_id": "sleeper-user-1",
+    "username": "manager",
+    "display_name": "Fantasy Manager",
+    "metadata": {
+      "team_name": "Fixture Team"
+    }
+  },
+  {
+    "user_id": "sleeper-user-2",
+    "username": "opponent",
+    "display_name": "Opponent Manager",
+    "metadata": {
+      "team_name": "Opponent Fixture Team"
+    }
+  }
+]
