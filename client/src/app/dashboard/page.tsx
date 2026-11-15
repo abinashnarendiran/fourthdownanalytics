@@ -4,7 +4,10 @@ import React, { useState, useEffect } from "react";
 import { MainLayout } from "../components/MainLayout";
 import { Protected } from "../components/Protected";
 import type { FantasyLeague } from "@/types/viewModels/integrations";
-import { getSleeperPowerRankingsSeasonData, getSleeperLeagueStatus } from "@/api/sleeper";
+import {
+  getSleeperPowerRankingsSeasonData,
+  getSleeperLeagueStatus,
+} from "@/api/sleeper";
 import { LeagueStatusCard } from "../components/LeagueStatusCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import InSeason from "./InSeason/InSeason";
@@ -138,66 +141,70 @@ export const Dashboard = () => {
 
   return (
     <Protected>
-      <MainLayout title="Dashboard" headerControls={headerControls}>
-        <ErrorBoundary title="Dashboard failed to load">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <LoadingSpinner />
-            <p className="text-sm font-medium opacity-50 tracking-widest uppercase">
-              Fetching Stats
-            </p>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-800 p-6 rounded-xl">
-            <h3 className="font-bold">Sync Error</h3>
-            <p className="text-sm opacity-80">{error}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* MAIN ANALYTICS COLUMN */}
-            <div className="lg:col-span-8">
-              {leagueMetaData && seasonData ? (
-                <div className="bg-white rounded-2xl border border-border shadow-sm p-8 min-h-150">
-                  <header className="flex justify-between items-center mb-8">
-                    <h3 className="text-xl font-bold">Season Performance</h3>
-                    <div className="text-xs font-bold px-2 py-1 bg-accent/10 text-accent rounded uppercase">
-                      Live Data
-                    </div>
-                  </header>
-                  {leagueMetaData.leagueStatus ===
-                    LEAGUE_STATUS.complete.value &&
-                    "finalPowerRankings" in seasonData && (
-                      <CompleteSeason seasonData={seasonData} />
-                    )}
-                  {leagueMetaData.leagueStatus ===
-                    LEAGUE_STATUS.preDraft.value &&
-                    "teams" in seasonData && (
-                      <PreDraft seasonData={seasonData} />
-                    )}
-
-                  {leagueMetaData.leagueStatus ===
-                    LEAGUE_STATUS.inSeason.value &&
-                    "powerRankings" in seasonData && (
-                      <InSeason seasonData={seasonData} />
-                    )}
-                </div>
-              ) : (
-                <div className="h-96 border-2 border-dashed border-border rounded-2xl flex items-center justify-center opacity-30 text-lg font-medium">
-                  Connect a league to view analytics
-                </div>
-              )}
+      <MainLayout
+        title="Dashboard"
+        headerControls={headerControls}>
+        <ErrorBoundary
+          key={`${selectedLeague?.id ?? "none"}:${selectedWeek}`}
+          title="Dashboard failed to load">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+              <LoadingSpinner />
+              <p className="text-sm font-medium opacity-50 tracking-widest uppercase">
+                Fetching Stats
+              </p>
             </div>
-
-            {/* SIDEBAR REFERENCE COLUMN */}
-            <div className="lg:col-span-4 space-y-6">
-              {leagueMetaData && (
-                <div className="sticky top-8">
-                  <LeagueStatusCard leagueMetaData={leagueMetaData} />
-                </div>
-              )}
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 text-red-800 p-6 rounded-xl">
+              <h3 className="font-bold">Sync Error</h3>
+              <p className="text-sm opacity-80">{error}</p>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* MAIN ANALYTICS COLUMN */}
+              <div className="lg:col-span-8">
+                {leagueMetaData && seasonData ? (
+                  <div className="bg-white rounded-2xl border border-border shadow-sm p-8 min-h-150">
+                    <header className="flex justify-between items-center mb-8">
+                      <h3 className="text-xl font-bold">Season Performance</h3>
+                      <div className="text-xs font-bold px-2 py-1 bg-accent/10 text-accent rounded uppercase">
+                        Live Data
+                      </div>
+                    </header>
+                    {leagueMetaData.leagueStatus ===
+                      LEAGUE_STATUS.complete.value &&
+                      "finalPowerRankings" in seasonData && (
+                        <CompleteSeason seasonData={seasonData} />
+                      )}
+                    {leagueMetaData.leagueStatus ===
+                      LEAGUE_STATUS.preDraft.value &&
+                      "teams" in seasonData && (
+                        <PreDraft seasonData={seasonData} />
+                      )}
+
+                    {leagueMetaData.leagueStatus ===
+                      LEAGUE_STATUS.inSeason.value &&
+                      "powerRankings" in seasonData && (
+                        <InSeason seasonData={seasonData} />
+                      )}
+                  </div>
+                ) : (
+                  <div className="h-96 border-2 border-dashed border-border rounded-2xl flex items-center justify-center opacity-30 text-lg font-medium">
+                    Connect a league to view analytics
+                  </div>
+                )}
+              </div>
+
+              {/* SIDEBAR REFERENCE COLUMN */}
+              <div className="lg:col-span-4 space-y-6">
+                {leagueMetaData && (
+                  <div className="sticky top-8">
+                    <LeagueStatusCard leagueMetaData={leagueMetaData} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </ErrorBoundary>
       </MainLayout>
     </Protected>
