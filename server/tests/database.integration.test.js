@@ -109,7 +109,12 @@ test("User, FantasyPlatform, and League rows persist and load through associatio
     ).rejects.toMatchObject({ name: "SequelizeForeignKeyConstraintError" });
   } finally {
     if (userId !== undefined) {
-      await Leagues.destroy({ where: { leagueId } });
+      await Leagues.destroy({
+        where: { leagueId: [leagueId, `orphan-${token}`] },
+      });
+      await FantasyPlatforms.destroy({
+        where: { username: `orphan-${token}` },
+      });
       await FantasyPlatforms.destroy({ where: { userId } });
       await Users.destroy({ where: { userId } });
     }
@@ -179,7 +184,7 @@ test("Player rows load related stats and projections and reject orphan children"
 
     await expect(
       PlayerWeekStats.create({
-        playerId: randomUUID(),
+        playerId: token,
         season: 2025,
         week: 1,
         stats: { points: 1 },
@@ -188,7 +193,7 @@ test("Player rows load related stats and projections and reject orphan children"
 
     await expect(
       PlayerWeekProjections.create({
-        playerId: randomUUID(),
+        playerId: token,
         season: 2025,
         week: 1,
         projections: { points: 1 },
@@ -196,8 +201,12 @@ test("Player rows load related stats and projections and reject orphan children"
     ).rejects.toMatchObject({ name: "SequelizeForeignKeyConstraintError" });
   } finally {
     if (playerId) {
-      await PlayerWeekStats.destroy({ where: { playerId } });
-      await PlayerWeekProjections.destroy({ where: { playerId } });
+      await PlayerWeekStats.destroy({
+        where: { playerId: [playerId, token] },
+      });
+      await PlayerWeekProjections.destroy({
+        where: { playerId: [playerId, token] },
+      });
       await Players.destroy({ where: { playerId } });
     }
   }
