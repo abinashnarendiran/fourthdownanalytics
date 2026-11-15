@@ -1,0 +1,17 @@
+[
+  {
+    "draft_id": "draft-2025",
+    "draft_order": {
+      "sleeper-user-1": 1
+    },
+    "type": "snake",
+    "settings": {
+      "rounds": 15
+    },
+    "status": "complete",
+    "start_time": 1750000000000,
+    "metadata": {
+      "scoring_type": "ppr"
+    }
+  }
+]

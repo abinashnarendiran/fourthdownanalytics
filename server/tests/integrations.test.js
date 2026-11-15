@@ -1,5 +1,9 @@
+import { createRequire } from "node:module";
+import { test } from "vitest";
+
+const require = createRequire(import.meta.url);
+
 const assert = require("node:assert/strict");
-const { test } = require("node:test");
 const { ENABLED_PLATFORMS } = require("../constants/platforms");
 const { FantasyPlatforms, Leagues } = require("../models");
 const sleeperService = require("../services/sleeper");

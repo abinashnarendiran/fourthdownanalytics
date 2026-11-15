@@ -1,0 +1,30 @@
+[
+  {
+    "roster_id": 1,
+    "owner_id": "sleeper-user-1",
+    "players": ["player-qb"],
+    "starters": ["player-qb"],
+    "taxi": [],
+    "settings": {
+      "wins": 1,
+      "losses": 0
+    },
+    "metadata": {
+      "team_name": "Fixture Team"
+    }
+  },
+  {
+    "roster_id": 2,
+    "owner_id": "sleeper-user-2",
+    "players": ["player-rb"],
+    "starters": ["player-rb"],
+    "taxi": [],
+    "settings": {
+      "wins": 0,
+      "losses": 1
+    },
+    "metadata": {
+      "team_name": "Opponent Fixture Team"
+    }
+  }
+]
