@@ -64,4 +64,18 @@ export default defineConfig([
       ],
     },
   },
+  {
+    files: [
+      "**/*.test.{ts,tsx}",
+      "src/test/**/*.{ts,tsx}",
+      "vitest.setup.ts",
+      "vitest.config.mts",
+    ],
+    rules: {
+      "import-x/no-extraneous-dependencies": [
+        "error",
+        { devDependencies: true },
+      ],
+    },
+  },
 ]);

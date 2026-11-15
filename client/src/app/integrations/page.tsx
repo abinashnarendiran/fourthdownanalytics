@@ -20,6 +20,7 @@ import {
 } from "@/api/intergrations";
 import { DeleteLeagueModal } from "./DeleteLeagueModal";
 import { DeletePlatformModal } from "./DeletePlatformModal";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 export default function IntegrationsPage() {
   // List of fantasy platforms connected by the user
@@ -180,6 +181,7 @@ export default function IntegrationsPage() {
   return (
     <Protected>
       <MainLayout title="Integrations" subtitle="Manage connected platforms and leagues">
+        <ErrorBoundary title="Integrations failed to load">
         <div className="p-6 space-y-6">
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -225,6 +227,7 @@ export default function IntegrationsPage() {
               />
             )}
         </div>
+        </ErrorBoundary>
       </MainLayout>
     </Protected>
   );
