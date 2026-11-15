@@ -23,6 +23,7 @@ import { LEAGUE_STATUS } from "@/constants/leagueStatusSleeper";
 import HeaderControls from "../components/HeaderControls";
 import InSeason from "./InSeason/InSeason";
 import TeamComparisonDrawer from "./components/TeamComparisonDrawer";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const readQueryId = (name: string): number | null => {
   if (typeof window === "undefined") return null;
@@ -385,10 +386,11 @@ export default function TeamAnalysis() {
           />
         }
       >
+        <ErrorBoundary title="Team analysis failed to load">
         {loading ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-24">
-            <LoadingSpinner />
-            <p className="text-sm font-medium uppercase tracking-widest opacity-50">
+            <div className="flex flex-col items-center justify-center gap-4 py-24">
+              <LoadingSpinner />
+              <p className="text-sm font-medium uppercase tracking-widest opacity-50">
               Fetching Stats
             </p>
           </div>
@@ -474,6 +476,7 @@ export default function TeamAnalysis() {
             </p>
           </div>
         )}
+        </ErrorBoundary>
       </MainLayout>
     </Protected>
   );

@@ -17,6 +17,7 @@ import type {
   DashboardSeasonData,
 } from "@/types/viewModels/dashboard";
 import LeagueSelector from "../components/LeagueSelector";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 export const Dashboard = () => {
   const [leagues, setLeagues] = useState<FantasyLeague[]>([]);
@@ -138,6 +139,7 @@ export const Dashboard = () => {
   return (
     <Protected>
       <MainLayout title="Dashboard" headerControls={headerControls}>
+        <ErrorBoundary title="Dashboard failed to load">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <LoadingSpinner />
@@ -196,6 +198,7 @@ export const Dashboard = () => {
             </div>
           </div>
         )}
+        </ErrorBoundary>
       </MainLayout>
     </Protected>
   );
